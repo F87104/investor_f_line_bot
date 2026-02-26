@@ -13,6 +13,7 @@ import {
 import { generateXPost, generateInfographicStructure } from "./llm-handlers";
 import { sendMorningNews } from "./scheduler";
 import { pushMessage, textMessage } from "./line";
+import { setupRichMenu } from "./richmenu";
 
 export const appRouter = router({
   system: systemRouter,
@@ -128,6 +129,12 @@ export const appRouter = router({
         }
         return { success: true, sentTo: users.length };
       }),
+  }),
+
+  richMenu: router({
+    setup: protectedProcedure.mutation(async () => {
+      return setupRichMenu();
+    }),
   }),
 });
 

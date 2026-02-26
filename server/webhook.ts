@@ -27,10 +27,30 @@ const COMMANDS: Record<string, (args: string) => Promise<string>> = {
     const structure = await generateInfographicStructure(topic || "ゴールド市場の最新動向");
     return `🎨 インフォグラフィック構成案:\n\n${structure}`;
   },
+  "/news": async () => {
+    const { sendMorningNews } = await import("./scheduler");
+    // Trigger news delivery
+    sendMorningNews().catch(console.error);
+    return `📰 最新の経済ニュースを取得中です...
+
+ゴールド（XAUUSD）とGBP/JPYの市場情報をまもなくお届けします。`;
+  },
+  "/categories": async () => {
+    return `📋 カテゴリ分類システム\n\n` +
+      `あなたのメッセージは自動的に以下のカテゴリに分類されます：\n\n` +
+      `📈 投資 - 市場分析、トレード、ゴールド、FX\n` +
+      `🤖 AI - AI技術、ツール、活用法\n` +
+      `📊 スライド - プレゼン、図解、コンテンツ制作\n` +
+      `💡 アイデア - ブレインストーミング、新規アイデア\n` +
+      `💬 一般 - その他の会話\n\n` +
+      `分類結果はダッシュボードで確認できます。`;
+  },
   "/help": async () => {
     return `🤖 投資家Fアシスタント コマンド一覧\n\n` +
       `📝 /xpost [トピック]\n→ X投稿の文案を生成\n\n` +
       `🎨 /infographic [トピック]\n→ インフォグラフィック構成案を生成\n\n` +
+      `📰 /news\n→ 最新の経済ニュースを取得\n\n` +
+      `📋 /categories\n→ カテゴリ分類の説明\n\n` +
       `💬 通常のメッセージ\n→ 自動分類＆AI応答\n\n` +
       `カテゴリ自動分類:\n` +
       `📈 投資 | 🤖 AI | 📊 スライド | 💡 アイデア | 💬 一般`;

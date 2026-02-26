@@ -1,6 +1,9 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, Users, Newspaper, Bell, TrendingUp, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MessageSquare, Users, Newspaper, Bell, TrendingUp, Sparkles, Menu, Loader2, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
+import { useState } from "react";
 
 const categoryLabels: Record<string, string> = {
   investment: "投資",
@@ -17,6 +20,50 @@ const categoryColors: Record<string, string> = {
   idea: "text-purple-400",
   general: "text-gray-400",
 };
+
+function RichMenuButton() {
+  const setupMutation = trpc.richMenu.setup.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success("リッチメニューを設定しました");
+      } else {
+        toast.error(data.error ?? "設定に失敗しました");
+      }
+    },
+    onError: () => toast.error("リッチメニューの設定に失敗しました"),
+  });
+
+  return (
+    <Button onClick={() => setupMutation.mutate()} disabled={setupMutation.isPending} className="w-full">
+      {setupMutation.isPending ? (
+        <><Loader2 className="h-4 w-4 animate-spin mr-2" />設定中...</>
+      ) : (
+        <><Menu className="h-4 w-4 mr-2" />リッチメニューを作成・設定</>
+      )}
+    </Button>
+  );
+}
+
+function WebhookUrlCopy() {
+  const [copied, setCopied] = useState(false);
+  const webhookUrl = `${window.location.origin}/api/webhook`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopied(true);
+    toast.success("コピーしました");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <code className="flex-1 text-xs bg-secondary/50 p-2 rounded truncate">{webhookUrl}</code>
+      <Button variant="outline" size="sm" onClick={handleCopy} className="bg-transparent shrink-0">
+        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      </Button>
+    </div>
+  );
+}
 
 export default function Home() {
   const { data: lineUsers } = trpc.lineUsers.list.useQuery();
@@ -74,6 +121,34 @@ export default function Home() {
           <CardContent>
             <div className="text-2xl font-bold">{activeReminders}</div>
             <p className="text-xs text-muted-foreground mt-1">アクティブなリマインダー</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Menu className="h-5 w-5 text-primary" />
+              リッチメニュー
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">LINEボットのリッチメニューを自動作成・設定します。X投稿・図解提案・ニュース・アイデア・カテゴリ・ヘルプの6ボタンが表示されます。</p>
+            <RichMenuButton />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Copy className="h-5 w-5 text-primary" />
+              Webhook URL
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">LINE DevelopersコンソールのMessaging API設定に以下のURLを設定してください。</p>
+            <WebhookUrlCopy />
           </CardContent>
         </Card>
       </div>

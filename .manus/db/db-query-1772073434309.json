@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO reminders (type, message, cronExpression, isActive) VALUES \n('x_post', '📝 X投稿の時間です！\\n\\n今日のトピックを考えて投稿しましょう。\\n投資やAIに関する最新の知見を共有してフォロワーと繋がりましょう。\\n\\n💡 ヒント: LINEで /xpost [トピック] と送ると、AIが投稿案を生成します。', '0 12', true),\n('slide_creation', '📊 スライド作成の時間です！\\n\\n今週のプロジェクトの進捗を確認し、新しいスライドを作成しましょう。\\n\\n💡 ヒント: LINEで /infographic [トピック] と送ると、AIが構成案を提案します。', '0 9', true);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2N2U1NXRetu2g6b.286ff675af05 --database JLN5gkf3pmmcrvpQRq2rce --execute INSERT INTO reminders (type, message, cronExpression, isActive) VALUES \n('x_post', '📝 X投稿の時間です！\\n\\n今日のトピックを考えて投稿しましょう。\\n投資やAIに関する最新の知見を共有してフォロワーと繋がりましょう。\\n\\n💡 ヒント: LINEで /xpost [トピック] と送ると、AIが投稿案を生成します。', '0 12', true),\n('slide_creation', '📊 スライド作成の時間です！\\n\\n今週のプロジェクトの進捗を確認し、新しいスライドを作成しましょう。\\n\\n💡 ヒント: LINEで /infographic [トピック] と送ると、AIが構成案を提案します。', '0 9', true);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1701
+}
