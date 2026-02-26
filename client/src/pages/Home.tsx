@@ -79,7 +79,7 @@ export default function Home() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">ダッシュボード</h1>
-        <p className="text-muted-foreground mt-1">投資家Fアシスタントの管理画面</p>
+        <p className="text-muted-foreground mt-1">投資家Fアシスタントの管理画面（ゴールド・GBP/JPY・USD/JPY・EUR/USD・米国経済・地政学リスク）</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

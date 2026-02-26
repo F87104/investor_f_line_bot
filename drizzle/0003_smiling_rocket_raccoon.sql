@@ -1,0 +1,1 @@
+ALTER TABLE `news_deliveries` MODIFY COLUMN `topic` enum('gold_xauusd','gbpjpy','combined','morning_briefing') NOT NULL;

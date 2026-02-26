@@ -22,6 +22,13 @@
       "when": 1772080246905,
       "tag": "0002_easy_the_fury",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1772081806830,
+      "tag": "0003_smiling_rocket_raccoon",
+      "breakpoints": true
     }
   ]
 }

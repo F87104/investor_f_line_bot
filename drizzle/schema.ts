@@ -60,7 +60,7 @@ export type InsertMessage = typeof messages.$inferInsert;
  */
 export const newsDeliveries = mysqlTable("news_deliveries", {
   id: int("id").autoincrement().primaryKey(),
-  topic: mysqlEnum("topic", ["gold_xauusd", "gbpjpy", "combined"]).notNull(),
+  topic: mysqlEnum("topic", ["gold_xauusd", "gbpjpy", "combined", "morning_briefing"]).notNull(),
   content: text("content").notNull(),
   sentAt: timestamp("sentAt").defaultNow().notNull(),
 });

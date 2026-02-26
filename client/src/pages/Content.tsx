@@ -51,7 +51,7 @@ export default function ContentPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">コンテンツ生成</h1>
-        <p className="text-muted-foreground mt-1">X投稿やインフォグラフィックの構成案をAIで生成</p>
+        <p className="text-muted-foreground mt-1">X投稿・図解・AI要約を生成（米国経済・ドル動向・地政学リスクも反映）</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -65,7 +65,7 @@ export default function ContentPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
-              placeholder="トピックを入力（例：ゴールド急騰の背景分析、AI投資ツールの活用法）"
+              placeholder="トピックを入力（例：ゴールド急騰とFRB利下げの関連、ドル円とポンド円の相関分析、米国CPI発表後の市場心理）"
               value={xTopic}
               onChange={(e) => setXTopic(e.target.value)}
               rows={3}
@@ -149,7 +149,7 @@ export default function ContentPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
-              placeholder="トピックを入力（例：今週のゴールド市場動向、GBP/JPYテクニカル分析）"
+              placeholder="トピックを入力（例：米国経済とゴールド・ポンドの相関関係、FRB政策金利が各通貨に与える影響、地政学リスクとマネーフロー）"
               value={infoTopic}
               onChange={(e) => setInfoTopic(e.target.value)}
               rows={3}

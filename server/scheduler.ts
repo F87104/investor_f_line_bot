@@ -3,35 +3,49 @@ import { multicastMessage, textMessage } from "./line";
 import { generateNewsSummary } from "./llm-handlers";
 import { ENV } from "./_core/env";
 
-// ─── Fetch Market Data ───
+// ─── Fetch Market Data (拡大版: ゴールド・ポンド円・ドル円・ユーロドル・米国経済) ───
 async function fetchMarketData(): Promise<string> {
+  const today = new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });
+  const sections: string[] = [`本日の日付: ${today}`];
+
+  // ── Gold price ──
   try {
-    // Use a free API to get basic market data
     const goldRes = await fetch("https://api.metals.dev/v1/latest?api_key=demo&currency=USD&unit=toz");
-    const forexRes = await fetch("https://open.er-api.com/v6/latest/GBP");
+    const goldData = await goldRes.json();
+    if (goldData?.metals?.gold) {
+      sections.push(`ゴールド（XAUUSD）: $${goldData.metals.gold}/トロイオンス`);
+    }
+  } catch { sections.push("ゴールド: データ取得中"); }
 
-    let goldInfo = "";
-    let gbpjpyInfo = "";
+  // ── Forex rates (GBP/JPY, USD/JPY, EUR/USD) ──
+  try {
+    const usdRes = await fetch("https://open.er-api.com/v6/latest/USD");
+    const usdData = await usdRes.json();
+    if (usdData?.rates) {
+      if (usdData.rates.JPY) sections.push(`ドル円（USD/JPY）: ${usdData.rates.JPY.toFixed(2)}`);
+      if (usdData.rates.EUR) sections.push(`ユーロドル（EUR/USD）: ${(1 / usdData.rates.EUR).toFixed(4)}`);
+    }
+  } catch { sections.push("USD為替: データ取得中"); }
 
-    try {
-      const goldData = await goldRes.json();
-      if (goldData?.metals?.gold) {
-        goldInfo = `ゴールド現在価格: $${goldData.metals.gold}/トロイオンス`;
-      }
-    } catch { goldInfo = "ゴールド価格データ取得中"; }
+  try {
+    const gbpRes = await fetch("https://open.er-api.com/v6/latest/GBP");
+    const gbpData = await gbpRes.json();
+    if (gbpData?.rates?.JPY) {
+      sections.push(`ポンド円（GBP/JPY）: ${gbpData.rates.JPY.toFixed(2)}`);
+    }
+  } catch { sections.push("GBP/JPY: データ取得中"); }
 
-    try {
-      const forexData = await forexRes.json();
-      if (forexData?.rates?.JPY) {
-        gbpjpyInfo = `GBP/JPY: ${forexData.rates.JPY.toFixed(2)}`;
-      }
-    } catch { gbpjpyInfo = "GBP/JPY価格データ取得中"; }
+  // ── US Economic Calendar / Key Events ──
+  try {
+    // Fetch recent economic news context via LLM knowledge
+    sections.push("\n【米国経済の注目点】");
+    sections.push("- FRB（連邦準備制度理事会）の政策金利動向");
+    sections.push("- 直近の雇用統計・CPI（消費者物価指数）の影響");
+    sections.push("- 地政学リスク（中東情勢、米中関係等）");
+    sections.push("- 世界的なマネーフローの方向性");
+  } catch { /* non-critical */ }
 
-    return `最新市場データ:\n${goldInfo}\n${gbpjpyInfo}\n\n本日の日付: ${new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })}`;
-  } catch (e) {
-    console.error("[Scheduler] Market data fetch error:", e);
-    return `本日の日付: ${new Date().toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })}`;
-  }
+  return sections.join("\n");
 }
 
 // ─── Send Morning News ───
@@ -54,7 +68,7 @@ export async function sendMorningNews() {
 
     // Save delivery record
     await saveNewsDelivery({
-      topic: "combined",
+      topic: "morning_briefing",
       content: newsSummary,
     });
 
@@ -126,5 +140,5 @@ export function initScheduler() {
   };
   setInterval(checkMorningNews, 60 * 1000);
 
-  console.log("[Scheduler] Initialized - morning news at 7:00 JST, reminders active");
+  console.log("[Scheduler] Initialized - morning briefing at 7:00 JST (Gold/GBP-JPY/USD-JPY/EUR-USD/US Economy), reminders active");
 }
