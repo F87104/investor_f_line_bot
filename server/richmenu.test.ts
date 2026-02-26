@@ -9,28 +9,13 @@ vi.mock("./line", () => ({
   getRichMenuList: vi.fn().mockResolvedValue({ richmenus: [] }),
 }));
 
-// Mock canvas
-vi.mock("canvas", () => {
-  const mockCtx = {
-    fillStyle: "",
-    strokeStyle: "",
-    lineWidth: 1,
-    font: "",
-    textAlign: "",
-    createLinearGradient: vi.fn().mockReturnValue({
-      addColorStop: vi.fn(),
-    }),
-    fillRect: vi.fn(),
-    beginPath: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    stroke: vi.fn(),
-    fillText: vi.fn(),
-  };
+// Mock sharp
+vi.mock("sharp", () => {
   return {
-    createCanvas: vi.fn().mockReturnValue({
-      getContext: vi.fn().mockReturnValue(mockCtx),
-      toBuffer: vi.fn().mockReturnValue(Buffer.from("fake-png-data")),
+    default: vi.fn().mockReturnValue({
+      png: vi.fn().mockReturnValue({
+        toBuffer: vi.fn().mockResolvedValue(Buffer.from("fake-png-data")),
+      }),
     }),
   };
 });
@@ -94,13 +79,13 @@ describe("Rich Menu Setup", () => {
   it("rich menu has 6 areas for the 6 buttons", async () => {
     const { createRichMenu } = await import("./line");
     const { setupRichMenu } = await import("./richmenu");
-    
+
     await setupRichMenu();
 
     const callArgs = (createRichMenu as any).mock.calls;
     const lastCall = callArgs[callArgs.length - 1][0];
     expect(lastCall.areas).toHaveLength(6);
-    
+
     // Verify button actions contain expected commands
     const actions = lastCall.areas.map((a: any) => a.action.text);
     expect(actions.some((t: string) => t.includes("/xpost"))).toBe(true);
