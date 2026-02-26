@@ -1,7 +1,8 @@
 import { Request, Response, Express } from "express";
 import { verifyLineSignature, replyMessage, textMessage, pushMessage, getUserProfile } from "./line";
 import { upsertLineUser, saveMessage } from "./db";
-import { classifyMessage, generateReply, generateXPost, generateInfographicStructure } from "./llm-handlers";
+import { classifyMessage, generateReply, generateXPost, generateInfographicStructure, summarizeArticle } from "./llm-handlers";
+import { isUrl, extractUrl, scrapeUrl } from "./scraper";
 
 // ─── Webhook Event Types ───
 interface LineEvent {
@@ -42,11 +43,35 @@ const COMMANDS: Record<string, (args: string) => Promise<string>> = {
       `💬 一般 - その他の会話\n\n` +
       `分類結果はダッシュボードで\n確認できるよ🌷\n\n投資家Fより💌`;
   },
+  "/summary": async (input: string) => {
+    if (!input) {
+      return `📝 AI要約機能だよ🐻✨\n\n使い方は簡単！\n\n① 記事URLを送る\n/summary https://...\n\n② テキストを送る\n/summary 要約したい文章...\n\n投資家Fの視点で\n要約してお届けするね🌷\n\n投資家Fより💌`;
+    }
+
+    const url = extractUrl(input);
+    if (url) {
+      try {
+        const article = await scrapeUrl(url);
+        const summary = await summarizeArticle(
+          `タイトル: ${article.title}\n\n${article.content}`,
+          article.url
+        );
+        return summary;
+      } catch (e: any) {
+        return `記事の取得に失敗しちゃった🐻💦\n\n${e.message}\n\n代わりに記事のテキストを\n直接貼り付けてみてね✨\n\n投資家Fより💌`;
+      }
+    } else {
+      // Direct text summary
+      const summary = await summarizeArticle(input);
+      return summary;
+    }
+  },
   "/help": async () => {
     return `🐻🌈 投資家Fアシスタント\nコマンド一覧だよ✨\n\n` +
       `📝 /xpost [トピック]\n→ X投稿の文案を3パターン生成\n\n` +
       `🎨 /infographic [トピック]\n→ 図解の構成案を生成\n\n` +
       `📰 /news\n→ 最新の経済ニュースを取得\n\n` +
+      `🧠 /summary [URLまたはテキスト]\n→ AI要約（Fの視点付き）\n\n` +
       `📋 /categories\n→ カテゴリ分類の説明\n\n` +
       `💬 普通にメッセージ\n→ 自動分類＆Fが応答するよ🌷\n\n` +
       `何でも気軽に話しかけてね🍀\n\n投資家Fより💌`;

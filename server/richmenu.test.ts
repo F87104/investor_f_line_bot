@@ -10,20 +10,7 @@ vi.mock("./line", () => ({
   getRichMenuList: vi.fn().mockResolvedValue({ richmenus: [] }),
 }));
 
-// Mock sharp
-vi.mock("sharp", () => {
-  const mockChain = {
-    resize: vi.fn().mockReturnThis(),
-    jpeg: vi.fn().mockReturnThis(),
-    png: vi.fn().mockReturnThis(),
-    toBuffer: vi.fn().mockResolvedValue(Buffer.from("fake-jpeg-data")),
-  };
-  return {
-    default: vi.fn().mockReturnValue(mockChain),
-  };
-});
-
-// Mock global fetch for CDN image download
+// Mock global fetch for CDN image download (pre-compressed JPEG, ~104KB)
 const mockFetch = vi.fn().mockResolvedValue({
   ok: true,
   arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
@@ -115,6 +102,7 @@ describe("Rich Menu Setup", () => {
     expect(actions.some((t: string) => t.includes("/xpost"))).toBe(true);
     expect(actions.some((t: string) => t.includes("/infographic"))).toBe(true);
     expect(actions.some((t: string) => t.includes("/news"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("/summary"))).toBe(true);
     expect(actions.some((t: string) => t.includes("/help"))).toBe(true);
   });
 });

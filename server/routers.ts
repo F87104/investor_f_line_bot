@@ -10,7 +10,8 @@ import {
   getGeneratedContent, saveGeneratedContent, updateContentStatus,
   getActiveLineUsers,
 } from "./db";
-import { generateXPost, generateInfographicStructure } from "./llm-handlers";
+import { generateXPost, generateInfographicStructure, summarizeArticle } from "./llm-handlers";
+import { extractUrl, scrapeUrl } from "./scraper";
 import { sendMorningNews } from "./scheduler";
 import { pushMessage, textMessage } from "./line";
 import { setupRichMenu } from "./richmenu";
@@ -115,6 +116,23 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await updateContentStatus(input.id, input.status);
         return { success: true };
+      }),
+    summarize: protectedProcedure
+      .input(z.object({ input: z.string().min(1) }))
+      .mutation(async ({ input: { input: userInput } }) => {
+        const url = extractUrl(userInput);
+        let content: string;
+        if (url) {
+          const article = await scrapeUrl(url);
+          content = await summarizeArticle(
+            `タイトル: ${article.title}\n\n${article.content}`,
+            article.url
+          );
+        } else {
+          content = await summarizeArticle(userInput);
+        }
+        await saveGeneratedContent({ type: "summary", topic: userInput.slice(0, 100), content });
+        return { content };
       }),
   }),
 

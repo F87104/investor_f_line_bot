@@ -93,18 +93,22 @@ export async function createRichMenu(richMenu: RichMenuObject): Promise<{ richMe
 
 // Upload rich menu image
 export async function uploadRichMenuImage(richMenuId: string, imageBuffer: Uint8Array, contentType = "image/png"): Promise<void> {
+  console.log(`[LINE API] Uploading rich menu image: ${(imageBuffer.length / 1024).toFixed(0)}KB, type=${contentType}`);
   const res = await fetch(`https://api-data.line.me/v2/bot/richmenu/${richMenuId}/content`, {
     method: "POST",
     headers: {
       "Content-Type": contentType,
+      "Content-Length": String(imageBuffer.length),
       Authorization: `Bearer ${ENV.lineChannelAccessToken}`,
     },
     body: imageBuffer as any,
   });
   if (!res.ok) {
     const text = await res.text();
+    console.error(`[LINE API] Upload failed: ${res.status}, size=${imageBuffer.length}, text=${text}`);
     throw new Error(`Upload rich menu image failed: ${res.status} ${text}`);
   }
+  console.log(`[LINE API] Rich menu image uploaded successfully`);
 }
 
 // Set default rich menu

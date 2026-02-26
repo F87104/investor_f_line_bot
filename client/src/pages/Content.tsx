@@ -3,15 +3,17 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Twitter, Image, Loader2, Copy, Check } from "lucide-react";
+import { Sparkles, Twitter, Image, Loader2, Copy, Check, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 
 export default function ContentPage() {
   const [xTopic, setXTopic] = useState("");
   const [infoTopic, setInfoTopic] = useState("");
+  const [summaryInput, setSummaryInput] = useState("");
   const [generatedXPost, setGeneratedXPost] = useState("");
   const [generatedInfographic, setGeneratedInfographic] = useState("");
+  const [generatedSummary, setGeneratedSummary] = useState("");
   const [copied, setCopied] = useState(false);
 
   const generateXPost = trpc.content.generateXPost.useMutation({
@@ -30,6 +32,14 @@ export default function ContentPage() {
     onError: () => toast.error("生成に失敗しました"),
   });
 
+  const summarize = trpc.content.summarize.useMutation({
+    onSuccess: (data) => {
+      setGeneratedSummary(data.content);
+      toast.success("AI要約を生成しました");
+    },
+    onError: () => toast.error("要約に失敗しました"),
+  });
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -44,7 +54,7 @@ export default function ContentPage() {
         <p className="text-muted-foreground mt-1">X投稿やインフォグラフィックの構成案をAIで生成</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {/* X Post Generator */}
         <Card>
           <CardHeader>
@@ -82,6 +92,48 @@ export default function ContentPage() {
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
                 <Streamdown>{generatedXPost}</Streamdown>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* AI Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" />
+              AI要約
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              placeholder="記事URLまたは要約したいテキストを入力（例：https://... または 記事の本文）"
+              value={summaryInput}
+              onChange={(e) => setSummaryInput(e.target.value)}
+              rows={3}
+            />
+            <Button
+              onClick={() => summarize.mutate({ input: summaryInput })}
+              disabled={!summaryInput.trim() || summarize.isPending}
+              className="w-full"
+            >
+              {summarize.isPending ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />要約中...</>
+              ) : (
+                <><Sparkles className="h-4 w-4 mr-2" />AI要約を生成</>
+              )}
+            </Button>
+            {generatedSummary && (
+              <div className="p-4 rounded-lg bg-secondary/50 relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => handleCopy(generatedSummary)}
+                >
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <Streamdown>{generatedSummary}</Streamdown>
               </div>
             )}
           </CardContent>
@@ -139,7 +191,7 @@ function ContentHistory() {
     approved: "bg-green-500/20 text-green-400",
     posted: "bg-blue-500/20 text-blue-400",
   };
-  const typeLabels: Record<string, string> = { x_post: "X投稿", infographic: "インフォグラフィック", news_summary: "ニュースサマリー" };
+  const typeLabels: Record<string, string> = { x_post: "X投稿", infographic: "インフォグラフィック", news_summary: "ニュースサマリー", summary: "AI要約" };
 
   return (
     <Card>

@@ -223,6 +223,58 @@ Fの図解スタイル:
   }
 }
 
+// ─── Article Summary (投資家Fスタイルで記事要約) ───
+export async function summarizeArticle(content: string, sourceUrl?: string): Promise<string> {
+  try {
+    const sourceNote = sourceUrl ? `\n\n参照元: ${sourceUrl}` : "";
+    const result = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `${INVESTOR_F_PERSONA}
+
+【AI要約の作成ルール】
+投資家Fとして、記事やテキストを要約します。
+
+フォーマット:
+📝 AI要約
+
+■ タイトル（記事の核心を1行で）
+
+■ ポイントまとめ（3〜5点）
+- 各ポイントをFらしい口調で簡潔に
+
+■ Fの視点
+（投資家Fならこの情報をどう活かすか）
+（心理面・メンタル面の洞察も含める）
+
+■ X投稿用ミニ要約（280文字以内）
+（そのままコピペでXに投稿できる形）
+
+投資家Fより💌
+
+【注意点】
+- LINEメッセージなので800文字以内
+- 専門用語はかみくだいて説明
+- Fらしいたとえ話を交える
+- 心理面の洞察を必ず含める
+- 最後に「投資家Fより💌」で締める`,
+        },
+        { role: "user", content: `以下の内容を投資家Fのスタイルで要約してください:${sourceNote}\n\n${content}` },
+      ],
+    });
+    const text = result.choices[0]?.message?.content;
+    if (typeof text === "string") return text;
+    if (Array.isArray(text)) {
+      return text.map(c => ("text" in c ? c.text : "")).join("");
+    }
+    return "要約の生成に失敗しちゃった🐻💦\nもう一回試してみてね✨\n\n投資家Fより💌";
+  } catch (e) {
+    console.error("[LLM] Article summary error:", e);
+    return "要約の生成に失敗しちゃった🐻💦\nしばらくしてからもう一度試してね✨\n\n投資家Fより💌";
+  }
+}
+
 // ─── Economic News Summary (投資家Fスタイルの朝ブリーフィング) ───
 export async function generateNewsSummary(newsData: string): Promise<string> {
   try {

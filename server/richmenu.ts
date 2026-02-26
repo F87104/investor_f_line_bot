@@ -4,9 +4,9 @@ import {
 } from "./line";
 
 // ─── Rich Menu Image ───
-// AI-generated premium gold-themed image hosted on CDN
-// 6-button layout: X投稿 | 図解提案 | ニュース | アイデア | カテゴリ | ヘルプ
-const RICH_MENU_IMAGE_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663341987478/PSRnOsDpdrdzpNUp.png";
+// Ultra-compressed JPEG (45KB, 2500x843) hosted on CDN - well under LINE's 1MB limit
+// No runtime image processing needed - avoids sharp/canvas dependency issues in deploy
+const RICH_MENU_IMAGE_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663341987478/pjkWPTtdzZkzZqTG.jpg";
 
 async function fetchRichMenuImage(): Promise<{ buffer: Buffer; contentType: string }> {
   const res = await fetch(RICH_MENU_IMAGE_URL);
@@ -16,27 +16,14 @@ async function fetchRichMenuImage(): Promise<{ buffer: Buffer; contentType: stri
   const arrayBuffer = await res.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  const sharp = (await import("sharp")).default;
-  const MAX_SIZE = 900 * 1024; // 900KB to stay safely under LINE's 1MB limit
+  console.log(`[RichMenu] Image fetched: ${(buffer.length / 1024).toFixed(0)}KB (pre-compressed JPEG)`);
 
-  // Resize to exactly 2500x843 as required by LINE API, output as JPEG for smaller file size
-  let quality = 85;
-  let compressedBuffer = await sharp(buffer)
-    .resize(2500, 843, { fit: "cover" })
-    .jpeg({ quality, mozjpeg: true })
-    .toBuffer();
-
-  // Progressively reduce quality if still too large
-  while (compressedBuffer.length > MAX_SIZE && quality > 30) {
-    quality -= 10;
-    compressedBuffer = await sharp(buffer)
-      .resize(2500, 843, { fit: "cover" })
-      .jpeg({ quality, mozjpeg: true })
-      .toBuffer();
+  // Verify size is under LINE's 1MB limit
+  if (buffer.length > 1024 * 1024) {
+    throw new Error(`Rich menu image too large: ${(buffer.length / 1024).toFixed(0)}KB (max 1024KB)`);
   }
 
-  console.log(`[RichMenu] Image compressed: ${(compressedBuffer.length / 1024).toFixed(0)}KB (quality: ${quality})`);
-  return { buffer: compressedBuffer, contentType: "image/jpeg" };
+  return { buffer, contentType: "image/jpeg" };
 }
 
 // ─── Rich Menu Definition ───
@@ -63,10 +50,10 @@ function getRichMenuDefinition(): RichMenuObject {
         bounds: { x: colW * 2, y: 0, width: 2500 - colW * 2, height: rowH },
         action: { type: "message", text: "/news" },
       },
-      // Row 2: アイデア | カテゴリ | ヘルプ
+      // Row 2: AI要約 | カテゴリ | ヘルプ
       {
         bounds: { x: 0, y: rowH, width: colW, height: 843 - rowH },
-        action: { type: "message", text: "アイデアを整理したい" },
+        action: { type: "message", text: "/summary" },
       },
       {
         bounds: { x: colW, y: rowH, width: colW, height: 843 - rowH },
@@ -93,7 +80,7 @@ export async function setupRichMenu(): Promise<{ success: boolean; richMenuId?: 
     const menuDef = getRichMenuDefinition();
     const { richMenuId } = await createRichMenu(menuDef);
 
-    // 3. Download AI-generated image from CDN and resize to LINE spec
+    // 3. Download pre-compressed image from CDN (no sharp needed)
     const { buffer, contentType } = await fetchRichMenuImage();
     await uploadRichMenuImage(richMenuId, buffer, contentType);
 

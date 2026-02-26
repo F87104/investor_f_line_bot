@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `generated_content` MODIFY COLUMN `type` enum('x_post','infographic','news_summary','summary') NOT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2N2U1NXRetu2g6b.286ff675af05 --database JLN5gkf3pmmcrvpQRq2rce --execute ALTER TABLE `generated_content` MODIFY COLUMN `type` enum('x_post','infographic','news_summary','summary') NOT NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2071
+}

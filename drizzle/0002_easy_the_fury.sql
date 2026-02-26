@@ -1,0 +1,1 @@
+ALTER TABLE `generated_content` MODIFY COLUMN `type` enum('x_post','infographic','news_summary','summary') NOT NULL;

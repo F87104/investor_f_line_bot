@@ -15,6 +15,13 @@
       "when": 1772071795317,
       "tag": "0001_peaceful_master_mold",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1772080246905,
+      "tag": "0002_easy_the_fury",
+      "breakpoints": true
     }
   ]
 }

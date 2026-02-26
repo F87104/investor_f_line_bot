@@ -39,6 +39,17 @@ vi.mock("./llm-handlers", () => ({
   generateXPost: vi.fn().mockResolvedValue("テストX投稿"),
   generateInfographicStructure: vi.fn().mockResolvedValue("テストインフォグラフィック"),
   generateNewsSummary: vi.fn().mockResolvedValue("テストニュースサマリー"),
+  summarizeArticle: vi.fn().mockResolvedValue("テストAI要約"),
+}));
+
+// Mock scraper
+vi.mock("./scraper", () => ({
+  isUrl: vi.fn((text: string) => /^https?:\/\//.test(text)),
+  extractUrl: vi.fn((text: string) => {
+    const match = text.match(/https?:\/\/[^\s]+/);
+    return match ? match[0] : null;
+  }),
+  scrapeUrl: vi.fn().mockResolvedValue({ title: "テスト記事", content: "テスト内容", url: "https://example.com" }),
 }));
 
 // Mock scheduler
@@ -91,6 +102,13 @@ describe("LLM Handlers", () => {
     expect(typeof result).toBe("string");
     expect(result.length).toBeGreaterThan(0);
   });
+
+  it("summarizeArticle returns a string", async () => {
+    const { summarizeArticle } = await import("./llm-handlers");
+    const result = await summarizeArticle("テスト記事の内容");
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+  });
 });
 
 describe("Router exports", () => {
@@ -110,6 +128,7 @@ describe("Router exports", () => {
     expect(procedures).toHaveProperty("reminders.create");
     expect(procedures).toHaveProperty("content.generateXPost");
     expect(procedures).toHaveProperty("content.generateInfographic");
+    expect(procedures).toHaveProperty("content.summarize");
     expect(procedures).toHaveProperty("push.send");
   });
 });

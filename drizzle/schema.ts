@@ -90,7 +90,7 @@ export type InsertReminder = typeof reminders.$inferInsert;
  */
 export const generatedContent = mysqlTable("generated_content", {
   id: int("id").autoincrement().primaryKey(),
-  type: mysqlEnum("type", ["x_post", "infographic", "news_summary"]).notNull(),
+  type: mysqlEnum("type", ["x_post", "infographic", "news_summary", "summary"]).notNull(),
   topic: varchar("topic", { length: 255 }),
   content: text("content").notNull(),
   status: mysqlEnum("status", ["draft", "approved", "posted"]).default("draft").notNull(),
