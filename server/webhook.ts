@@ -21,39 +21,35 @@ interface WebhookBody {
 const COMMANDS: Record<string, (args: string) => Promise<string>> = {
   "/xpost": async (topic: string) => {
     const post = await generateXPost(topic || "ゴールドとポンド円の最新市場分析");
-    return `📝 X投稿案:\n\n${post}\n\n---\nこの投稿でよければ、そのままコピーしてXに投稿してください！`;
+    return `📝 X投稿案だよ🐻✨\n\n${post}\n\n---\n気に入ったパターンがあれば、\nそのままコピペしてXに投稿してね🌷\n\n投資家Fより💌`;
   },
   "/infographic": async (topic: string) => {
     const structure = await generateInfographicStructure(topic || "ゴールド市場の最新動向");
-    return `🎨 インフォグラフィック構成案:\n\n${structure}`;
+    return structure;
   },
   "/news": async () => {
     const { sendMorningNews } = await import("./scheduler");
-    // Trigger news delivery
     sendMorningNews().catch(console.error);
-    return `📰 最新の経済ニュースを取得中です...
-
-ゴールド（XAUUSD）とGBP/JPYの市場情報をまもなくお届けします。`;
+    return `📰 最新ニュースを取得中だよ🐻✨\n\nゴールド（XAUUSD）と\nポンド円（GBP/JPY）の\n市場情報をまもなくお届けするね🌷\n\nちょっと待っててね🍀\n\n投資家Fより💌`;
   },
   "/categories": async () => {
-    return `📋 カテゴリ分類システム\n\n` +
-      `あなたのメッセージは自動的に以下のカテゴリに分類されます：\n\n` +
+    return `📋 カテゴリ分類のしくみ🐻🌈\n\n` +
+      `メッセージを送ると、\nAIが自動で分類してくれるよ✨\n\n` +
       `📈 投資 - 市場分析、トレード、ゴールド、FX\n` +
       `🤖 AI - AI技術、ツール、活用法\n` +
       `📊 スライド - プレゼン、図解、コンテンツ制作\n` +
       `💡 アイデア - ブレインストーミング、新規アイデア\n` +
       `💬 一般 - その他の会話\n\n` +
-      `分類結果はダッシュボードで確認できます。`;
+      `分類結果はダッシュボードで\n確認できるよ🌷\n\n投資家Fより💌`;
   },
   "/help": async () => {
-    return `🤖 投資家Fアシスタント コマンド一覧\n\n` +
-      `📝 /xpost [トピック]\n→ X投稿の文案を生成\n\n` +
-      `🎨 /infographic [トピック]\n→ インフォグラフィック構成案を生成\n\n` +
+    return `🐻🌈 投資家Fアシスタント\nコマンド一覧だよ✨\n\n` +
+      `📝 /xpost [トピック]\n→ X投稿の文案を3パターン生成\n\n` +
+      `🎨 /infographic [トピック]\n→ 図解の構成案を生成\n\n` +
       `📰 /news\n→ 最新の経済ニュースを取得\n\n` +
       `📋 /categories\n→ カテゴリ分類の説明\n\n` +
-      `💬 通常のメッセージ\n→ 自動分類＆AI応答\n\n` +
-      `カテゴリ自動分類:\n` +
-      `📈 投資 | 🤖 AI | 📊 スライド | 💡 アイデア | 💬 一般`;
+      `💬 普通にメッセージ\n→ 自動分類＆Fが応答するよ🌷\n\n` +
+      `何でも気軽に話しかけてね🍀\n\n投資家Fより💌`;
   },
 };
 
@@ -135,16 +131,18 @@ async function processFollowEvent(event: LineEvent) {
   }
 
   if (event.replyToken) {
-    const welcomeMessage = `🎉 友だち追加ありがとうございます！\n\n` +
-      `私は「投資家Fアシスタント」です。\n\n` +
+    const welcomeMessage = `＼はじめまして🐻🌈／\n\n` +
+      `友だち追加ありがとう✨\n` +
+      `投資家Fのアシスタントだよ🌷\n\n` +
+      `こんなことができるよ：\n\n` +
       `📈 ゴールド・ポンド円の市場分析\n` +
-      `🤖 AI活用の投資アドバイス\n` +
-      `📝 X投稿の文案作成\n` +
-      `🎨 インフォグラフィック構成提案\n` +
-      `💡 アイデア整理\n\n` +
-      `をサポートします！\n\n` +
-      `コマンド一覧は /help で確認できます。\n` +
-      `何でもお気軽にメッセージしてください！`;
+      `📝 X投稿の文案作成（3パターン）\n` +
+      `🎨 図解の構成案を提案\n` +
+      `📰 毎朝7時に経済ニュース配信\n` +
+      `💡 アイデア整理のお手伝い\n\n` +
+      `コマンド一覧は /help で確認してね🍀\n\n` +
+      `何でも気軽にメッセージしてね😉\n\n` +
+      `投資家Fより💌`;
     await replyMessage(event.replyToken, [textMessage(welcomeMessage)]);
   }
 }
