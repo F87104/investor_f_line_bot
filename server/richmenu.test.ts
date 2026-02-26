@@ -12,14 +12,14 @@ vi.mock("./line", () => ({
 
 // Mock sharp
 vi.mock("sharp", () => {
+  const mockChain = {
+    resize: vi.fn().mockReturnThis(),
+    jpeg: vi.fn().mockReturnThis(),
+    png: vi.fn().mockReturnThis(),
+    toBuffer: vi.fn().mockResolvedValue(Buffer.from("fake-jpeg-data")),
+  };
   return {
-    default: vi.fn().mockReturnValue({
-      resize: vi.fn().mockReturnValue({
-        png: vi.fn().mockReturnValue({
-          toBuffer: vi.fn().mockResolvedValue(Buffer.from("fake-png-data")),
-        }),
-      }),
-    }),
+    default: vi.fn().mockReturnValue(mockChain),
   };
 });
 
@@ -71,7 +71,7 @@ describe("Rich Menu Setup", () => {
     expect(lineModule.uploadRichMenuImage).toHaveBeenCalledWith(
       "test-rich-menu-id",
       expect.any(Buffer),
-      "image/png"
+      "image/jpeg"
     );
     expect(lineModule.setDefaultRichMenu).toHaveBeenCalledWith("test-rich-menu-id");
   });

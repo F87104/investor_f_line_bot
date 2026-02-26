@@ -16,14 +16,27 @@ async function fetchRichMenuImage(): Promise<{ buffer: Buffer; contentType: stri
   const arrayBuffer = await res.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // Resize to exactly 2500x843 as required by LINE API
   const sharp = (await import("sharp")).default;
-  const resizedBuffer = await sharp(buffer)
+  const MAX_SIZE = 900 * 1024; // 900KB to stay safely under LINE's 1MB limit
+
+  // Resize to exactly 2500x843 as required by LINE API, output as JPEG for smaller file size
+  let quality = 85;
+  let compressedBuffer = await sharp(buffer)
     .resize(2500, 843, { fit: "cover" })
-    .png()
+    .jpeg({ quality, mozjpeg: true })
     .toBuffer();
 
-  return { buffer: resizedBuffer, contentType: "image/png" };
+  // Progressively reduce quality if still too large
+  while (compressedBuffer.length > MAX_SIZE && quality > 30) {
+    quality -= 10;
+    compressedBuffer = await sharp(buffer)
+      .resize(2500, 843, { fit: "cover" })
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer();
+  }
+
+  console.log(`[RichMenu] Image compressed: ${(compressedBuffer.length / 1024).toFixed(0)}KB (quality: ${quality})`);
+  return { buffer: compressedBuffer, contentType: "image/jpeg" };
 }
 
 // ─── Rich Menu Definition ───
