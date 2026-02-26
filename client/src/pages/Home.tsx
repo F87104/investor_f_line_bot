@@ -1,31 +1,139 @@
-import { useAuth } from "@/_core/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { getLoginUrl } from "@/const";
-import { Streamdown } from 'streamdown';
+import { trpc } from "@/lib/trpc";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MessageSquare, Users, Newspaper, Bell, TrendingUp, Sparkles } from "lucide-react";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
+const categoryLabels: Record<string, string> = {
+  investment: "投資",
+  ai: "AI",
+  slide_project: "スライド",
+  idea: "アイデア",
+  general: "一般",
+};
+
+const categoryColors: Record<string, string> = {
+  investment: "text-amber-400",
+  ai: "text-blue-400",
+  slide_project: "text-green-400",
+  idea: "text-purple-400",
+  general: "text-gray-400",
+};
+
 export default function Home() {
-  // The userAuth hooks provides authentication state
-  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+  const { data: lineUsers } = trpc.lineUsers.list.useQuery();
+  const { data: messageStats } = trpc.messages.stats.useQuery();
+  const { data: recentMessages } = trpc.messages.list.useQuery({ limit: 5 });
+  const { data: newsHistory } = trpc.news.history.useQuery({ limit: 5 });
+  const { data: reminders } = trpc.reminders.list.useQuery();
 
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  const totalMessages = messageStats?.reduce((sum, s) => sum + Number(s.count), 0) ?? 0;
+  const activeReminders = reminders?.filter(r => r.isActive).length ?? 0;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">ダッシュボード</h1>
+        <p className="text-muted-foreground mt-1">投資家Fアシスタントの管理画面</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">LINE ユーザー</CardTitle>
+            <Users className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{lineUsers?.length ?? 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">アクティブな接続数</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">メッセージ</CardTitle>
+            <MessageSquare className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalMessages}</div>
+            <p className="text-xs text-muted-foreground mt-1">総メッセージ数</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">ニュース配信</CardTitle>
+            <Newspaper className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{newsHistory?.length ?? 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">配信済みニュース</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">リマインダー</CardTitle>
+            <Bell className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{activeReminders}</div>
+            <p className="text-xs text-muted-foreground mt-1">アクティブなリマインダー</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              カテゴリ別メッセージ
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {messageStats && messageStats.length > 0 ? (
+              <div className="space-y-3">
+                {messageStats.map((stat) => (
+                  <div key={stat.category} className="flex items-center justify-between">
+                    <span className={`text-sm font-medium ${categoryColors[stat.category ?? "general"]}`}>
+                      {categoryLabels[stat.category ?? "general"] ?? stat.category}
+                    </span>
+                    <span className="text-sm text-muted-foreground">{Number(stat.count)} 件</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">まだメッセージがありません。LINEでボットにメッセージを送ると、ここに分類結果が表示されます。</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              最近のメッセージ
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentMessages && recentMessages.length > 0 ? (
+              <div className="space-y-3">
+                {recentMessages.map((msg) => (
+                  <div key={msg.id} className="flex flex-col gap-1 p-2 rounded-lg bg-secondary/50">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-medium ${categoryColors[msg.category ?? "general"]}`}>
+                        {categoryLabels[msg.category ?? "general"]}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {msg.direction === "incoming" ? "受信" : "送信"}
+                      </span>
+                    </div>
+                    <p className="text-sm line-clamp-2">{msg.content}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">まだメッセージがありません。</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

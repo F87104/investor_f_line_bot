@@ -1,6 +1,13 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import {
+  InsertUser, users,
+  lineUsers, InsertLineUser,
+  messages, InsertMessage,
+  newsDeliveries, InsertNewsDelivery,
+  reminders, InsertReminder,
+  generatedContent, InsertGeneratedContent,
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +96,123 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ─── LINE User helpers ───
+export async function upsertLineUser(lineUserId: string, displayName?: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(lineUsers).values({ lineUserId, displayName: displayName ?? null })
+    .onDuplicateKeyUpdate({ set: { displayName: displayName ?? sql`displayName`, updatedAt: new Date() } });
+}
+
+export async function getActiveLineUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(lineUsers).where(eq(lineUsers.isActive, true));
+}
+
+export async function getAllLineUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(lineUsers).orderBy(desc(lineUsers.createdAt));
+}
+
+// ─── Message helpers ───
+export async function saveMessage(msg: InsertMessage) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(messages).values(msg);
+}
+
+export async function getMessages(limit = 50, category?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  if (category && category !== "all") {
+    return db.select().from(messages)
+      .where(eq(messages.category, category as any))
+      .orderBy(desc(messages.createdAt)).limit(limit);
+  }
+  return db.select().from(messages).orderBy(desc(messages.createdAt)).limit(limit);
+}
+
+export async function getMessagesByCategory() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    category: messages.category,
+    count: sql<number>`count(*)`,
+  }).from(messages).groupBy(messages.category);
+}
+
+// ─── News Delivery helpers ───
+export async function saveNewsDelivery(delivery: InsertNewsDelivery) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(newsDeliveries).values(delivery);
+}
+
+export async function getRecentNewsDeliveries(limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(newsDeliveries).orderBy(desc(newsDeliveries.sentAt)).limit(limit);
+}
+
+// ─── Reminder helpers ───
+export async function getActiveReminders() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(reminders).where(eq(reminders.isActive, true));
+}
+
+export async function getAllReminders() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(reminders).orderBy(desc(reminders.createdAt));
+}
+
+export async function createReminder(reminder: InsertReminder) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(reminders).values(reminder);
+}
+
+export async function updateReminderStatus(id: number, isActive: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(reminders).set({ isActive }).where(eq(reminders.id, id));
+}
+
+export async function deleteReminder(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(reminders).where(eq(reminders.id, id));
+}
+
+export async function updateReminderLastSent(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(reminders).set({ lastSentAt: new Date() }).where(eq(reminders.id, id));
+}
+
+// ─── Generated Content helpers ───
+export async function saveGeneratedContent(content: InsertGeneratedContent) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(generatedContent).values(content);
+}
+
+export async function getGeneratedContent(type?: string, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  if (type) {
+    return db.select().from(generatedContent)
+      .where(eq(generatedContent.type, type as any))
+      .orderBy(desc(generatedContent.createdAt)).limit(limit);
+  }
+  return db.select().from(generatedContent).orderBy(desc(generatedContent.createdAt)).limit(limit);
+}
+
+export async function updateContentStatus(id: number, status: "draft" | "approved" | "posted") {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(generatedContent).set({ status }).where(eq(generatedContent.id, id));
+}
