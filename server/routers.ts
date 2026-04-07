@@ -13,7 +13,7 @@ import {
   saveCategorization, getCategorizationByMemoId, updateCategorization,
   saveAnalysisResult, getAnalysisResultByMemoId,
 } from "./db";
-import { generateXPost, generateInfographicStructure, summarizeArticle, analyzeMemoMaedaStyle } from "./llm-handlers";
+import { analyzeMemoMaedaStyle, summarizeArticle, generateShiwakeGuide, generateKotaeawase } from "./llm-handlers";
 import { extractUrl, scrapeUrl } from "./scraper";
 import { sendMorningNews } from "./scheduler";
 import { pushMessage, textMessage } from "./line";
@@ -103,26 +103,6 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return getGeneratedContent(input?.type, input?.limit ?? 20);
       }),
-    generateXPost: protectedProcedure
-      .input(z.object({ topic: z.string().min(1) }))
-      .mutation(async ({ input }) => {
-        const content = await generateXPost(input.topic);
-        await saveGeneratedContent({ type: "x_post", topic: input.topic, content });
-        return { content };
-      }),
-    generateInfographic: protectedProcedure
-      .input(z.object({ topic: z.string().min(1) }))
-      .mutation(async ({ input }) => {
-        const content = await generateInfographicStructure(input.topic);
-        await saveGeneratedContent({ type: "infographic", topic: input.topic, content });
-        return { content };
-      }),
-    updateStatus: protectedProcedure
-      .input(z.object({ id: z.number(), status: z.enum(["draft", "approved", "posted"]) }))
-      .mutation(async ({ input }) => {
-        await updateContentStatus(input.id, input.status);
-        return { success: true };
-      }),
     summarize: protectedProcedure
       .input(z.object({ input: z.string().min(1) }))
       .mutation(async ({ input: { input: userInput } }) => {
@@ -139,6 +119,12 @@ export const appRouter = router({
         }
         await saveGeneratedContent({ type: "summary", topic: userInput.slice(0, 100), content });
         return { content };
+      }),
+    updateStatus: protectedProcedure
+      .input(z.object({ id: z.number(), status: z.enum(["draft", "approved", "posted"]) }))
+      .mutation(async ({ input }) => {
+        await updateContentStatus(input.id, input.status);
+        return { success: true };
       }),
   }),
 

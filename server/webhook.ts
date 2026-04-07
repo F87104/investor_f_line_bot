@@ -1,7 +1,7 @@
 import { Request, Response, Express } from "express";
 import { verifyLineSignature, replyMessage, textMessage, pushMessage, getUserProfile } from "./line";
-import { upsertLineUser, saveMessage } from "./db";
-import { classifyMessage, generateReply, generateXPost, generateInfographicStructure, summarizeArticle } from "./llm-handlers";
+import { upsertLineUser, saveMessage, createMemo, getMemos, getMemoById } from "./db";
+import { classifyMessage, generateReply, generateShiwakeGuide, generateKotaeawase, summarizeArticle } from "./llm-handlers";
 import { isUrl, extractUrl, scrapeUrl } from "./scraper";
 
 // ─── Webhook Event Types ───
@@ -18,34 +18,84 @@ interface WebhookBody {
   destination?: string;
 }
 
+// ─── User Session State (in-memory for simplicity) ───
+const userSessions: Map<string, {
+  currentMemoId?: number;
+  step?: "waiting_memo" | "waiting_shiwake" | "waiting_abstraction" | "waiting_concrete" | "waiting_transfer";
+  factContent?: string;
+  abstraction?: string;
+  concrete?: string;
+}> = new Map();
+
 // ─── Command Handlers ───
-const COMMANDS: Record<string, (args: string) => Promise<string>> = {
-  "/xpost": async (topic: string) => {
-    const post = await generateXPost(topic || "ゴールドとポンド円の最新市場分析");
-    return `📝 X投稿案だよ🐻✨\n\n${post}\n\n---\n気に入ったパターンがあれば、\nそのままコピペしてXに投稿してね🌷\n\n投資家Fより💌`;
+const COMMANDS: Record<string, (args: string, userId: string) => Promise<string>> = {
+  "/memo": async (_args: string, userId: string) => {
+    userSessions.set(userId, { step: "waiting_memo" });
+    return `📝 メモ入力モード\n\n思いついたこと、気づいたこと、\n感じたことを自由に書いてください。\n\n日常の些細なことでもOKです！\n前田裕二さんは「すべての出来事に\n学びがある」と言っています。\n\n---\n💡 ヒント: 具体的な事実（ファクト）を\nそのまま書くのがコツです`;
   },
-  "/infographic": async (topic: string) => {
-    const structure = await generateInfographicStructure(topic || "ゴールド市場の最新動向");
-    return structure;
+  "/shiwake": async (_args: string, userId: string) => {
+    const session = userSessions.get(userId);
+    if (!session?.factContent) {
+      return `📋 仕分けワーク\n\nまだメモが入力されていません。\n\nまず「/memo」でメモを入力してから\n仕分けワークを始めましょう！\n\n---\n「/memo」→ メモ入力\n「/shiwake」→ 仕分けワーク\n「/kotaeawase」→ 答え合わせ`;
+    }
+    const guide = await generateShiwakeGuide(session.factContent);
+    userSessions.set(userId, { ...session, step: "waiting_abstraction" });
+    return guide;
   },
-  "/news": async () => {
-    const { sendMorningNews } = await import("./scheduler");
-    sendMorningNews().catch(console.error);
-    return `📰 最新ニュースを取得中だよ🐻✨\n\nゴールド（XAUUSD）と\nポンド円（GBP/JPY）の\n市場情報をまもなくお届けするね🌷\n\nちょっと待っててね🍀\n\n投資家Fより💌`;
+  "/kotaeawase": async (_args: string, userId: string) => {
+    const session = userSessions.get(userId);
+    if (!session?.factContent) {
+      return `✅ 答え合わせ\n\nまだメモが入力されていません。\n\nまず「/memo」でメモを入力してから\n答え合わせをしましょう！\n\n---\n「/memo」→ メモ入力\n「/shiwake」→ 仕分けワーク\n「/kotaeawase」→ 答え合わせ`;
+    }
+    const result = await generateKotaeawase(
+      session.factContent,
+      session.abstraction,
+      session.concrete,
+      session.step === "waiting_transfer" ? undefined : undefined
+    );
+    // Reset session after kotaeawase
+    userSessions.set(userId, {});
+    return result;
   },
-  "/categories": async () => {
-    return `📋 カテゴリ分類のしくみ🐻🌈\n\n` +
-      `メッセージを送ると、\nAIが自動で分類してくれるよ✨\n\n` +
-      `📈 投資 - 市場分析、トレード、ゴールド、FX\n` +
-      `🤖 AI - AI技術、ツール、活用法\n` +
-      `📊 スライド - プレゼン、図解、コンテンツ制作\n` +
-      `💡 アイデア - ブレインストーミング、新規アイデア\n` +
-      `💬 一般 - その他の会話\n\n` +
-      `分類結果はダッシュボードで\n確認できるよ🌷\n\n投資家Fより💌`;
+  "/history": async (_args: string, userId: string) => {
+    try {
+      const memos = await getMemos(userId, 5);
+      if (memos.length === 0) {
+        return `📚 メモ履歴\n\nまだメモがありません。\n\n「/memo」でメモを入力して\n思考の記録を始めましょう！`;
+      }
+      let response = `📚 最近のメモ（${memos.length}件）\n\n`;
+      memos.forEach((memo: any, i: number) => {
+        const date = new Date(memo.createdAt).toLocaleDateString("ja-JP");
+        const preview = memo.factContent.substring(0, 50) + (memo.factContent.length > 50 ? "..." : "");
+        const statusIcon = memo.status === "analyzed" ? "✅" : memo.status === "categorized" ? "📋" : "📝";
+        response += `${statusIcon} ${date}\n${preview}\n\n`;
+      });
+      response += `---\nダッシュボードで詳細を確認できます`;
+      return response;
+    } catch (e) {
+      return `📚 メモ履歴\n\nメモの取得に失敗しました。\nしばらくしてからお試しください。`;
+    }
   },
-  "/summary": async (input: string) => {
+  "/mynote": async (_args: string, userId: string) => {
+    try {
+      const memos = await getMemos(userId, 100);
+      const analyzed = memos.filter((m: any) => m.status === "analyzed").length;
+      const categorized = memos.filter((m: any) => m.status === "categorized").length;
+      const draft = memos.filter((m: any) => m.status === "draft").length;
+
+      return `📁 マイノート\n\n📊 メモの統計:\n` +
+        `・総メモ数: ${memos.length}件\n` +
+        `・分析済み: ${analyzed}件 ✅\n` +
+        `・仕分け済み: ${categorized}件 📋\n` +
+        `・下書き: ${draft}件 📝\n\n` +
+        `---\n詳細はダッシュボードで確認できます`;
+    } catch (e) {
+      return `📁 マイノート\n\nデータの取得に失敗しました。\nしばらくしてからお試しください。`;
+    }
+  },
+  "/summary": async (input: string, _userId: string) => {
     if (!input) {
-      return `📝 AI要約機能だよ🐻✨\n\n使い方は簡単！\n\n① 記事URLを送る\n/summary https://...\n\n② テキストを送る\n/summary 要約したい文章...\n\n投資家Fの視点で\n要約してお届けするね🌷\n\n投資家Fより💌`;
+      return `📝 要約機能\n\n使い方:\n\n① 記事URLを送る\n/summary https://...\n\n② テキストを送る\n/summary 要約したい文章...\n\n前田裕二の「メモの魔力」式で\n要約をお届けします！`;
     }
 
     const url = extractUrl(input);
@@ -58,39 +108,39 @@ const COMMANDS: Record<string, (args: string) => Promise<string>> = {
         );
         return summary;
       } catch (e: any) {
-        return `記事の取得に失敗しちゃった🐻💦\n\n${e.message}\n\n代わりに記事のテキストを\n直接貼り付けてみてね✨\n\n投資家Fより💌`;
+        return `記事の取得に失敗しました。\n\n${e.message}\n\n代わりに記事のテキストを\n直接貼り付けてみてください。`;
       }
     } else {
-      // Direct text summary
       const summary = await summarizeArticle(input);
       return summary;
     }
   },
   "/help": async () => {
-    return `🐻🌈 投資家Fアシスタント\nコマンド一覧だよ✨\n\n` +
-      `📝 /xpost [トピック]\n→ X投稿の文案を3パターン生成\n\n` +
-      `🎨 /infographic [トピック]\n→ 図解の構成案を生成\n\n` +
-      `📰 /news\n→ 最新の経済ニュースを取得\n\n` +
-      `🧠 /summary [URLまたはテキスト]\n→ AI要約（Fの視点付き）\n\n` +
-      `📋 /categories\n→ カテゴリ分類の説明\n\n` +
-      `💬 普通にメッセージ\n→ 自動分類＆Fが応答するよ🌷\n\n` +
-      `何でも気軽に話しかけてね🍀\n\n投資家Fより💌`;
+    return `📖 メモの魔力 使い方ガイド\n\n` +
+      `📝 /memo\n→ メモを入力する\n\n` +
+      `🧠 /shiwake\n→ 仕分けワーク開始\n  （抽象化・具体化・転用）\n\n` +
+      `✅ /kotaeawase\n→ 前田裕二的「答え合わせ」\n\n` +
+      `📚 /history\n→ 最近のメモ履歴\n\n` +
+      `📁 /mynote\n→ メモの統計情報\n\n` +
+      `📝 /summary [URLまたはテキスト]\n→ メモの魔力式 要約\n\n` +
+      `💬 普通にメッセージ\n→ 前田裕二が考察してくれます\n\n` +
+      `何でも気軽にメモしてください！`;
   },
 };
 
-// ─── Category Emoji Map ───
+// ─── Category Labels ───
 const CATEGORY_EMOJI: Record<string, string> = {
-  investment: "📈",
-  ai: "🤖",
-  slide_project: "📊",
+  business: "💼",
+  personal: "🌱",
+  learning: "📖",
   idea: "💡",
   general: "💬",
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
-  investment: "投資",
-  ai: "AI",
-  slide_project: "スライドプロジェクト",
+  business: "ビジネス",
+  personal: "自己成長",
+  learning: "学び",
   idea: "アイデア",
   general: "一般",
 };
@@ -116,30 +166,85 @@ async function processTextMessage(event: LineEvent) {
   for (const [cmd, handler] of Object.entries(COMMANDS)) {
     if (lowerText.startsWith(cmd)) {
       const args = text.slice(cmd.length).trim();
-      const response = await handler(args);
-      // Save incoming message
+      const response = await handler(args, userId);
       await saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "memo_input" });
-      // Save outgoing message
-      await saveMessage({ lineUserId: userId, direction: "outgoing", content: response, messageType: "analysis_result" });
+      await saveMessage({ lineUserId: userId, direction: "outgoing", content: response, messageType: "workflow_step" });
       await replyMessage(replyToken, [textMessage(response)]);
       return;
     }
   }
 
-  // Classify message
-  const category = await classifyMessage(text);
+  // Check session state for workflow
+  const session = userSessions.get(userId);
 
-  // Save incoming message with category
+  if (session?.step === "waiting_memo") {
+    // User is entering a memo
+    try {
+      const memo = await createMemo({ lineUserId: userId, factContent: text });
+      const memoId = memo?.id;
+      userSessions.set(userId, { currentMemoId: memoId, factContent: text, step: "waiting_shiwake" });
+
+      const guide = await generateShiwakeGuide(text);
+      await saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "memo_input" });
+      await saveMessage({ lineUserId: userId, direction: "outgoing", content: guide, messageType: "workflow_step" });
+      await replyMessage(replyToken, [textMessage(guide)]);
+      return;
+    } catch (e) {
+      console.error("[Webhook] Memo creation error:", e);
+    }
+  }
+
+  if (session?.step === "waiting_abstraction") {
+    // User is entering abstraction
+    userSessions.set(userId, { ...session, abstraction: text, step: "waiting_concrete" });
+    const response = `🔍 抽象化を受け取りました！\n\n「${text.substring(0, 80)}${text.length > 80 ? "..." : ""}」\n\n次は【具体化】です。\nこの法則が当てはまる\n別の場面を考えてみてください。\n\n---\nスキップして答え合わせに進むには\n「/kotaeawase」と送ってください`;
+    await saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "workflow_step" });
+    await saveMessage({ lineUserId: userId, direction: "outgoing", content: response, messageType: "workflow_step" });
+    await replyMessage(replyToken, [textMessage(response)]);
+    return;
+  }
+
+  if (session?.step === "waiting_concrete") {
+    // User is entering concrete examples
+    userSessions.set(userId, { ...session, concrete: text, step: "waiting_transfer" });
+    const response = `💡 具体例を受け取りました！\n\n「${text.substring(0, 80)}${text.length > 80 ? "..." : ""}」\n\n最後は【転用】です。\nこの気づきを、あなたの仕事や\n生活にどう活かせますか？\n\n---\nスキップして答え合わせに進むには\n「/kotaeawase」と送ってください`;
+    await saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "workflow_step" });
+    await saveMessage({ lineUserId: userId, direction: "outgoing", content: response, messageType: "workflow_step" });
+    await replyMessage(replyToken, [textMessage(response)]);
+    return;
+  }
+
+  if (session?.step === "waiting_transfer") {
+    // User is entering transfer - auto trigger kotaeawase
+    const result = await generateKotaeawase(
+      session.factContent || "",
+      session.abstraction,
+      session.concrete,
+      text
+    );
+    userSessions.set(userId, {});
+    await saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "workflow_step" });
+    await saveMessage({ lineUserId: userId, direction: "outgoing", content: result, messageType: "analysis_result" });
+    await replyMessage(replyToken, [textMessage(result)]);
+    return;
+  }
+
+  // Default: classify and respond with Maeda-style analysis
+  const category = await classifyMessage(text);
   await saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "memo_input" });
 
-  // Generate reply
+  // Auto-save as memo
+  try {
+    await createMemo({ lineUserId: userId, factContent: text });
+  } catch (e) {
+    console.error("[Webhook] Auto memo save error:", e);
+  }
+
   const reply = await generateReply(text, category);
   const categoryTag = `[${CATEGORY_EMOJI[category]} ${CATEGORY_LABEL[category]}]`;
-  const fullReply = `${categoryTag}\n\n${reply}`;
+  const fullReply = `${categoryTag}\n\n${reply}\n\n---\n💡 仕分けワーク: /shiwake\n✅ 答え合わせ: /kotaeawase`;
 
-  // Save outgoing message
   await saveMessage({ lineUserId: userId, direction: "outgoing", content: fullReply, messageType: "analysis_result" });
-
   await replyMessage(replyToken, [textMessage(fullReply)]);
 }
 
@@ -156,28 +261,24 @@ async function processFollowEvent(event: LineEvent) {
   }
 
   if (event.replyToken) {
-    const welcomeMessage = `＼はじめまして🐻🌈／\n\n` +
-      `友だち追加ありがとう✨\n` +
-      `投資家Fのアシスタントだよ🌷\n\n` +
-      `こんなことができるよ：\n\n` +
-      `📈 ゴールド・ポンド円の市場分析\n` +
-      `📝 X投稿の文案作成（3パターン）\n` +
-      `🎨 図解の構成案を提案\n` +
-      `📰 毎朝7時に経済ニュース配信\n` +
-      `💡 アイデア整理のお手伝い\n\n` +
-      `コマンド一覧は /help で確認してね🍀\n\n` +
-      `何でも気軽にメッセージしてね😉\n\n` +
-      `投資家Fより💌`;
+    const welcomeMessage = `はじめまして！\n\n` +
+      `「メモの魔力」へようこそ ✨\n\n` +
+      `このアプリでは、前田裕二さんの\n「メモの魔力」メソッドを使って\n思考を深めることができます。\n\n` +
+      `📝 思いついたことをメモする\n🧠 抽象化・具体化・転用で仕分け\n✅ 前田裕二的な「答え合わせ」\n\n` +
+      `使い方はシンプル:\n\n` +
+      `① 「/memo」でメモを入力\n` +
+      `② 「/shiwake」で仕分けワーク\n` +
+      `③ 「/kotaeawase」で答え合わせ\n\n` +
+      `または、そのままメッセージを\n送るだけでもOKです！\n\n` +
+      `さあ、今日から「メモの魔力」で\n新しい発見を始めましょう！`;
     await replyMessage(event.replyToken, [textMessage(welcomeMessage)]);
   }
 }
 
 // ─── Register Webhook Route ───
 export function registerWebhookRoute(app: Express) {
-  // LINE Webhook needs raw body for signature verification
   app.post("/api/webhook", async (req: Request, res: Response) => {
     try {
-      // Get raw body for signature verification
       const signature = req.headers["x-line-signature"] as string;
       if (!signature) {
         console.warn("[Webhook] Missing x-line-signature header");
@@ -185,7 +286,6 @@ export function registerWebhookRoute(app: Express) {
         return;
       }
 
-      // Verify signature using the JSON body
       const rawBody = JSON.stringify(req.body);
       if (!verifyLineSignature(rawBody, signature)) {
         console.warn("[Webhook] Invalid signature");
@@ -196,10 +296,8 @@ export function registerWebhookRoute(app: Express) {
       const body = req.body as WebhookBody;
       console.log(`[Webhook] Received ${body.events?.length ?? 0} events`);
 
-      // Respond immediately to LINE
       res.status(200).json({ status: "ok" });
 
-      // Process events asynchronously
       for (const event of body.events || []) {
         try {
           switch (event.type) {
@@ -212,7 +310,6 @@ export function registerWebhookRoute(app: Express) {
               await processFollowEvent(event);
               break;
             case "unfollow":
-              // User blocked the bot - could mark as inactive
               console.log(`[Webhook] User unfollowed: ${event.source?.userId}`);
               break;
             default:
@@ -230,7 +327,6 @@ export function registerWebhookRoute(app: Express) {
     }
   });
 
-  // Health check endpoint for LINE webhook verification
   app.get("/api/webhook", (_req: Request, res: Response) => {
     res.status(200).json({ status: "ok", message: "LINE Webhook endpoint is active" });
   });

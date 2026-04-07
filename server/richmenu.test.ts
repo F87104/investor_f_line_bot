@@ -97,12 +97,12 @@ describe("Rich Menu Setup", () => {
     const lastCall = callArgs[callArgs.length - 1][0];
     expect(lastCall.areas).toHaveLength(6);
 
-    // Verify button actions contain expected commands
+    // Verify button actions contain expected memo magic commands
     const actions = lastCall.areas.map((a: any) => a.action.text);
-    expect(actions.some((t: string) => t.includes("/xpost"))).toBe(true);
-    expect(actions.some((t: string) => t.includes("/infographic"))).toBe(true);
-    expect(actions.some((t: string) => t.includes("/news"))).toBe(true);
-    expect(actions.some((t: string) => t.includes("/summary"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("/memo"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("/shiwake"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("/kotaeawase"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("/history"))).toBe(true);
     expect(actions.some((t: string) => t.includes("/help"))).toBe(true);
   });
 });

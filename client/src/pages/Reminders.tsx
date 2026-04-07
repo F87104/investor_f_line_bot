@@ -10,8 +10,8 @@ import { Bell, Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const typeLabels: Record<string, string> = {
-  x_post: "X投稿リマインダー",
-  slide_creation: "スライド作成リマインダー",
+  x_post: "メモ習慣リマインダー",
+  slide_creation: "振り返りリマインダー",
   custom: "カスタム",
 };
 
@@ -46,8 +46,8 @@ export default function RemindersPage() {
   });
 
   const defaultMessages: Record<string, string> = {
-    x_post: "📝 X投稿の時間です！今日のトピックを考えて投稿しましょう。\n/xpost コマンドで投稿案を生成できます。",
-    slide_creation: "📊 スライド作成の時間です！今週のプロジェクトの進捗を確認しましょう。",
+    x_post: "📝 メモの時間です！今日感じたこと、気づいたことをメモしましょう。\n「メモを書く」でワークを始められます。",
+    slide_creation: "🔍 振り返りの時間です！今週のメモを見返して、抽象化・転用を深めましょう。",
     custom: "",
   };
 
@@ -55,7 +55,7 @@ export default function RemindersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">リマインダー</h1>
-        <p className="text-muted-foreground mt-1">X投稿やスライド作成のリマインダーを管理</p>
+        <p className="text-muted-foreground mt-1">メモ習慣や振り返りのリマインダーを管理</p>
       </div>
 
       {/* Create Reminder */}
@@ -79,8 +79,8 @@ export default function RemindersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="x_post">X投稿リマインダー</SelectItem>
-                  <SelectItem value="slide_creation">スライド作成リマインダー</SelectItem>
+                  <SelectItem value="x_post">メモ習慣リマインダー</SelectItem>
+                  <SelectItem value="slide_creation">振り返りリマインダー</SelectItem>
                   <SelectItem value="custom">カスタム</SelectItem>
                 </SelectContent>
               </Select>

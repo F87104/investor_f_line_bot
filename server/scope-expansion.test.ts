@@ -18,42 +18,69 @@ vi.mock("./db", () => ({
   updateReminderLastSent: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Mock llm-handlers with expanded scope awareness
+// Mock llm-handlers with memo magic functions
 vi.mock("./llm-handlers", () => ({
-  classifyMessage: vi.fn().mockResolvedValue("investment"),
-  generateReply: vi.fn().mockResolvedValue("テスト応答です 投資家Fより💌"),
-  generateXPost: vi.fn().mockResolvedValue("パターン① テスト投稿 投資家Fより💌"),
-  generateInfographicStructure: vi.fn().mockResolvedValue("📐 テスト図解 投資家Fより💌"),
-  generateNewsSummary: vi.fn().mockResolvedValue("＼🌅おはようございます🐻🌈／\nドル円・ユーロドル・ゴールド・ポンド円\n投資家Fより💌"),
-  summarizeArticle: vi.fn().mockResolvedValue("テストAI要約 投資家Fより💌"),
+  classifyMessage: vi.fn().mockResolvedValue("business"),
+  generateReply: vi.fn().mockResolvedValue("テスト応答です。ここから何が読み取れるか考えてみましょう。"),
+  generateShiwakeGuide: vi.fn().mockResolvedValue("📝 メモを受け取りました！仕分けワークを始めましょう。"),
+  generateKotaeawase: vi.fn().mockResolvedValue("✅ 前田裕二的「答え合わせ」\n\n分析結果です。"),
+  analyzeMemoMaedaStyle: vi.fn().mockResolvedValue({
+    maedaAbstraction: "テスト抽象化",
+    maedaConcrete: "テスト具体例",
+    maedaTransfer: "テスト転用",
+    maedaInsight: "テストインサイト",
+  }),
+  summarizeArticle: vi.fn().mockResolvedValue("📝 メモの魔力式 要約\n\nテスト要約です。"),
+  generateMemoReminder: vi.fn().mockResolvedValue("おはようございます！今日もメモの魔力で新しい発見を！"),
+  generateXPost: vi.fn().mockResolvedValue("この機能は現在利用できません。"),
+  generateInfographicStructure: vi.fn().mockResolvedValue("この機能は現在利用できません。"),
+  generateNewsSummary: vi.fn().mockResolvedValue("おはようございます！今日もメモの魔力で新しい発見を！"),
 }));
 
-describe("Analysis Scope Expansion", () => {
-  describe("INVESTOR_F_PERSONA covers expanded scope", () => {
-    it("llm-handlers module exports all required functions", async () => {
+describe("Memo Magic App - Core Functions", () => {
+  describe("LLM handlers export all required functions", () => {
+    it("exports memo analysis functions", async () => {
       const handlers = await import("./llm-handlers");
       expect(handlers.classifyMessage).toBeDefined();
       expect(handlers.generateReply).toBeDefined();
-      expect(handlers.generateXPost).toBeDefined();
-      expect(handlers.generateInfographicStructure).toBeDefined();
-      expect(handlers.generateNewsSummary).toBeDefined();
+      expect(handlers.generateShiwakeGuide).toBeDefined();
+      expect(handlers.generateKotaeawase).toBeDefined();
+      expect(handlers.analyzeMemoMaedaStyle).toBeDefined();
       expect(handlers.summarizeArticle).toBeDefined();
+      expect(handlers.generateMemoReminder).toBeDefined();
     });
 
-    it("generateNewsSummary returns expanded briefing format", async () => {
-      const { generateNewsSummary } = await import("./llm-handlers");
-      const result = await generateNewsSummary("テスト市場データ");
+    it("classifyMessage returns valid memo categories", async () => {
+      const { classifyMessage } = await import("./llm-handlers");
+      const result = await classifyMessage("新しいビジネスモデルを考えた");
+      expect(["business", "personal", "learning", "idea", "general"]).toContain(result);
+    });
+
+    it("analyzeMemoMaedaStyle returns structured analysis", async () => {
+      const { analyzeMemoMaedaStyle } = await import("./llm-handlers");
+      const result = await analyzeMemoMaedaStyle("テストメモ");
+      expect(result).toHaveProperty("maedaAbstraction");
+      expect(result).toHaveProperty("maedaConcrete");
+      expect(result).toHaveProperty("maedaTransfer");
+      expect(result).toHaveProperty("maedaInsight");
+    });
+
+    it("generateShiwakeGuide returns guidance text", async () => {
+      const { generateShiwakeGuide } = await import("./llm-handlers");
+      const result = await generateShiwakeGuide("テストファクト");
       expect(typeof result).toBe("string");
       expect(result.length).toBeGreaterThan(0);
-      // The mock returns a string with expanded currency pairs
-      expect(result).toContain("ドル円");
-      expect(result).toContain("ユーロドル");
-      expect(result).toContain("ゴールド");
-      expect(result).toContain("ポンド円");
+    });
+
+    it("generateKotaeawase returns analysis text", async () => {
+      const { generateKotaeawase } = await import("./llm-handlers");
+      const result = await generateKotaeawase("テストファクト", "テスト抽象化");
+      expect(typeof result).toBe("string");
+      expect(result.length).toBeGreaterThan(0);
     });
   });
 
-  describe("Scheduler fetchMarketData covers expanded scope", () => {
+  describe("Scheduler functions", () => {
     it("sendMorningNews is callable", async () => {
       const { sendMorningNews } = await import("./scheduler");
       expect(sendMorningNews).toBeDefined();
@@ -67,45 +94,55 @@ describe("Analysis Scope Expansion", () => {
     });
   });
 
-  describe("Database schema supports morning_briefing topic", () => {
+  describe("Database schema supports memo tables", () => {
+    it("memos table is defined", async () => {
+      const { memos } = await import("../drizzle/schema");
+      expect(memos).toBeDefined();
+    });
+
+    it("categorizations table is defined", async () => {
+      const { categorizations } = await import("../drizzle/schema");
+      expect(categorizations).toBeDefined();
+    });
+
+    it("analysisResults table is defined", async () => {
+      const { analysisResults } = await import("../drizzle/schema");
+      expect(analysisResults).toBeDefined();
+    });
+
     it("newsDeliveries schema includes morning_briefing enum", async () => {
       const { newsDeliveries } = await import("../drizzle/schema");
       expect(newsDeliveries).toBeDefined();
-      // Verify the topic column exists
       const topicColumn = newsDeliveries.topic;
       expect(topicColumn).toBeDefined();
-      // Check that the enum values include morning_briefing
       const enumValues = topicColumn.enumValues;
-      expect(enumValues).toContain("gold_xauusd");
-      expect(enumValues).toContain("gbpjpy");
-      expect(enumValues).toContain("combined");
       expect(enumValues).toContain("morning_briefing");
     });
   });
 
-  describe("Classification handles expanded investment topics", () => {
-    it("classifyMessage handles USD/JPY topic", async () => {
+  describe("Classification handles memo categories", () => {
+    it("classifyMessage handles business topic", async () => {
       const { classifyMessage } = await import("./llm-handlers");
-      const result = await classifyMessage("ドル円が150円を突破した");
-      expect(["investment", "ai", "slide_project", "idea", "general"]).toContain(result);
+      const result = await classifyMessage("新規事業の立ち上げについて考えた");
+      expect(["business", "personal", "learning", "idea", "general"]).toContain(result);
     });
 
-    it("classifyMessage handles EUR/USD topic", async () => {
+    it("classifyMessage handles personal topic", async () => {
       const { classifyMessage } = await import("./llm-handlers");
-      const result = await classifyMessage("ユーロドルが下落している");
-      expect(["investment", "ai", "slide_project", "idea", "general"]).toContain(result);
+      const result = await classifyMessage("朝の習慣を変えてみた");
+      expect(["business", "personal", "learning", "idea", "general"]).toContain(result);
     });
 
-    it("classifyMessage handles FRB/US economy topic", async () => {
+    it("classifyMessage handles learning topic", async () => {
       const { classifyMessage } = await import("./llm-handlers");
-      const result = await classifyMessage("FRBが政策金利を据え置いた");
-      expect(["investment", "ai", "slide_project", "idea", "general"]).toContain(result);
+      const result = await classifyMessage("プログラミングの新しい概念を学んだ");
+      expect(["business", "personal", "learning", "idea", "general"]).toContain(result);
     });
 
-    it("classifyMessage handles geopolitical risk topic", async () => {
+    it("classifyMessage handles idea topic", async () => {
       const { classifyMessage } = await import("./llm-handlers");
-      const result = await classifyMessage("中東情勢の緊迫化で安全資産に資金流入");
-      expect(["investment", "ai", "slide_project", "idea", "general"]).toContain(result);
+      const result = await classifyMessage("新しいアプリのアイデアを思いついた");
+      expect(["business", "personal", "learning", "idea", "general"]).toContain(result);
     });
   });
 });

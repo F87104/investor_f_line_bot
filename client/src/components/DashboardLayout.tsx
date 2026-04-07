@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, MessageSquare, Newspaper, Bell, Sparkles, Send } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, MessageSquare, BookOpen, Bell, Brain, Send, PenTool } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -30,8 +30,8 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", path: "/" },
   { icon: MessageSquare, label: "メッセージ", path: "/messages" },
-  { icon: Sparkles, label: "コンテンツ生成", path: "/content" },
-  { icon: Newspaper, label: "ニュース配信", path: "/news" },
+  { icon: Brain, label: "メモの魔力式要約", path: "/content" },
+  { icon: BookOpen, label: "リマインダー履歴", path: "/news" },
   { icon: Bell, label: "リマインダー", path: "/reminders" },
   { icon: Send, label: "プッシュ通知", path: "/push" },
 ];
@@ -175,7 +175,7 @@ function DashboardLayoutContent({
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-semibold tracking-tight truncate">
-                    投資家F
+                    メモの魔力
                   </span>
                 </div>
               ) : null}

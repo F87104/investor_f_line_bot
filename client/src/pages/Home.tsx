@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Users, Newspaper, Bell, TrendingUp, Sparkles, Menu, Loader2, Copy, Check } from "lucide-react";
+import { MessageSquare, Users, BookOpen, Bell, PenTool, Sparkles, Menu, Loader2, Copy, Check, Brain, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -67,7 +67,6 @@ export default function Home() {
   const { data: lineUsers } = trpc.lineUsers.list.useQuery();
   const { data: messageStats } = trpc.messages.stats.useQuery();
   const { data: recentMessages } = trpc.messages.list.useQuery({ limit: 5 });
-  const { data: newsHistory } = trpc.news.history.useQuery({ limit: 5 });
   const { data: reminders } = trpc.reminders.list.useQuery();
 
   const totalMessages = messageStats?.reduce((sum: number, s: any) => sum + Number(s.count), 0) ?? 0;
@@ -76,9 +75,40 @@ export default function Home() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">ダッシュボード</h1>
-        <p className="text-muted-foreground mt-1">投資家Fアシスタントの管理画面（ゴールド・GBP/JPY・USD/JPY・EUR/USD・米国経済・地政学リスク）</p>
+        <h1 className="text-2xl font-bold tracking-tight">メモの魔力 ダッシュボード</h1>
+        <p className="text-muted-foreground mt-1">前田裕二「メモの魔力」メソッドで思考を深めるLINEアシスタント</p>
       </div>
+
+      {/* Memo Magic Workflow Overview */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-center">
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <PenTool className="h-6 w-6 text-primary" />
+              </div>
+              <span className="text-sm font-semibold">メモ入力</span>
+              <span className="text-xs text-muted-foreground">ファクトを書く</span>
+            </div>
+            <ArrowRight className="h-5 w-5 text-muted-foreground hidden md:block" />
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <Brain className="h-6 w-6 text-primary" />
+              </div>
+              <span className="text-sm font-semibold">仕分けワーク</span>
+              <span className="text-xs text-muted-foreground">抽象・具体・転用</span>
+            </div>
+            <ArrowRight className="h-5 w-5 text-muted-foreground hidden md:block" />
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
+              <span className="text-sm font-semibold">答え合わせ</span>
+              <span className="text-xs text-muted-foreground">前田裕二的考察</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -103,12 +133,12 @@ export default function Home() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">ニュース配信</CardTitle>
-            <Newspaper className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">メモリマインダー</CardTitle>
+            <BookOpen className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{newsHistory?.length ?? 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">配信済みニュース</p>
+            <div className="text-2xl font-bold">毎朝 7:00</div>
+            <p className="text-xs text-muted-foreground mt-1">メモ習慣化リマインダー</p>
           </CardContent>
         </Card>
         <Card>
@@ -133,7 +163,7 @@ export default function Home() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">LINEボットのリッチメニューを自動作成・設定します。X投稿・図解提案・ニュース・アイデア・カテゴリ・ヘルプの6ボタンが表示されます。</p>
+            <p className="text-sm text-muted-foreground mb-3">LINEのリッチメニューを「メモの魔力」仕様に設定します。メモ入力・仕分けワーク・答え合わせ・メモ履歴・マイノート・ヘルプの6ボタンが表示されます。</p>
             <RichMenuButton />
           </CardContent>
         </Card>
@@ -155,8 +185,8 @@ export default function Home() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              カテゴリ別メッセージ
+              <PenTool className="h-5 w-5 text-primary" />
+              メッセージ種別
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -172,7 +202,7 @@ export default function Home() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">まだメッセージがありません。LINEでボットにメッセージを送ると、ここに分類結果が表示されます。</p>
+              <p className="text-sm text-muted-foreground">まだメッセージがありません。LINEでメモを送ると、ここに分類結果が表示されます。</p>
             )}
           </CardContent>
         </Card>

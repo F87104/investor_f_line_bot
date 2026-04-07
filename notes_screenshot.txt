@@ -1,0 +1,7 @@
+Screenshot observations:
+- Sidebar header still shows "投資家F" - needs to be changed
+- Dashboard content is correctly updated to メモの魔力
+- Workflow overview (メモ入力→仕分けワーク→答え合わせ) looks good
+- Stats cards are correct
+- Rich menu and Webhook URL sections are correct
+- Sidebar nav items are correctly updated

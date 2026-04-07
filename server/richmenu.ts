@@ -4,9 +4,8 @@ import {
 } from "./line";
 
 // ─── Rich Menu Image ───
-// Ultra-compressed JPEG (45KB, 2500x843) hosted on CDN - well under LINE's 1MB limit
-// No runtime image processing needed - avoids sharp/canvas dependency issues in deploy
-const RICH_MENU_IMAGE_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663341987478/pjkWPTtdzZkzZqTG.jpg";
+// Pre-compressed JPEG (118KB, 2500x843) hosted on CDN - well under LINE's 1MB limit
+const RICH_MENU_IMAGE_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663341987478/JLN5gkf3pmmcrvpQRq2rce/richmenu_memo_magic_992bf10f.jpg";
 
 async function fetchRichMenuImage(): Promise<{ buffer: Buffer; contentType: string }> {
   const res = await fetch(RICH_MENU_IMAGE_URL);
@@ -34,30 +33,30 @@ function getRichMenuDefinition(): RichMenuObject {
   return {
     size: { width: 2500, height: 843 },
     selected: true,
-    name: "投資家Fアシスタント メニュー",
+    name: "メモの魔力 メニュー",
     chatBarText: "メニューを開く",
     areas: [
-      // Row 1: X投稿 | 図解提案 | ニュース
+      // Row 1: メモ入力 | 仕分けワーク | 答え合わせ
       {
         bounds: { x: 0, y: 0, width: colW, height: rowH },
-        action: { type: "message", text: "/xpost 今日のマーケット分析" },
+        action: { type: "message", text: "/memo" },
       },
       {
         bounds: { x: colW, y: 0, width: colW, height: rowH },
-        action: { type: "message", text: "/infographic 今週の市場動向" },
+        action: { type: "message", text: "/shiwake" },
       },
       {
         bounds: { x: colW * 2, y: 0, width: 2500 - colW * 2, height: rowH },
-        action: { type: "message", text: "/news" },
+        action: { type: "message", text: "/kotaeawase" },
       },
-      // Row 2: AI要約 | カテゴリ | ヘルプ
+      // Row 2: メモ履歴 | マイノート | ヘルプ
       {
         bounds: { x: 0, y: rowH, width: colW, height: 843 - rowH },
-        action: { type: "message", text: "/summary" },
+        action: { type: "message", text: "/history" },
       },
       {
         bounds: { x: colW, y: rowH, width: colW, height: 843 - rowH },
-        action: { type: "message", text: "/categories" },
+        action: { type: "message", text: "/mynote" },
       },
       {
         bounds: { x: colW * 2, y: rowH, width: 2500 - colW * 2, height: 843 - rowH },

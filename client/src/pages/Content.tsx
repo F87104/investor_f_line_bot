@@ -3,39 +3,19 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Twitter, Image, Loader2, Copy, Check, Brain } from "lucide-react";
+import { Sparkles, Brain, BookOpen, Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 
 export default function ContentPage() {
-  const [xTopic, setXTopic] = useState("");
-  const [infoTopic, setInfoTopic] = useState("");
   const [summaryInput, setSummaryInput] = useState("");
-  const [generatedXPost, setGeneratedXPost] = useState("");
-  const [generatedInfographic, setGeneratedInfographic] = useState("");
   const [generatedSummary, setGeneratedSummary] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const generateXPost = trpc.content.generateXPost.useMutation({
-    onSuccess: (data) => {
-      setGeneratedXPost(data.content);
-      toast.success("X投稿案を生成しました");
-    },
-    onError: () => toast.error("生成に失敗しました"),
-  });
-
-  const generateInfographic = trpc.content.generateInfographic.useMutation({
-    onSuccess: (data) => {
-      setGeneratedInfographic(data.content);
-      toast.success("インフォグラフィック構成案を生成しました");
-    },
-    onError: () => toast.error("生成に失敗しました"),
-  });
-
   const summarize = trpc.content.summarize.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: { content: string }) => {
       setGeneratedSummary(data.content);
-      toast.success("AI要約を生成しました");
+      toast.success("メモの魔力式 要約を生成しました");
     },
     onError: () => toast.error("要約に失敗しました"),
   });
@@ -51,66 +31,24 @@ export default function ContentPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">コンテンツ生成</h1>
-        <p className="text-muted-foreground mt-1">X投稿・図解・AI要約を生成（米国経済・ドル動向・地政学リスクも反映）</p>
+        <p className="text-muted-foreground mt-1">前田裕二の「メモの魔力」式で記事やテキストを要約・分析</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {/* X Post Generator */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Twitter className="h-5 w-5 text-primary" />
-              X投稿生成
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Textarea
-              placeholder="トピックを入力（例：ゴールド急騰とFRB利下げの関連、ドル円とポンド円の相関分析、米国CPI発表後の市場心理）"
-              value={xTopic}
-              onChange={(e) => setXTopic(e.target.value)}
-              rows={3}
-            />
-            <Button
-              onClick={() => generateXPost.mutate({ topic: xTopic })}
-              disabled={!xTopic.trim() || generateXPost.isPending}
-              className="w-full"
-            >
-              {generateXPost.isPending ? (
-                <><Loader2 className="h-4 w-4 animate-spin mr-2" />生成中...</>
-              ) : (
-                <><Sparkles className="h-4 w-4 mr-2" />X投稿を生成</>
-              )}
-            </Button>
-            {generatedXPost && (
-              <div className="p-4 rounded-lg bg-secondary/50 relative">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                  onClick={() => handleCopy(generatedXPost)}
-                >
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-                <Streamdown>{generatedXPost}</Streamdown>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* AI Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Memo Magic Summary */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5 text-primary" />
-              AI要約
+              メモの魔力式 要約
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
-              placeholder="記事URLまたは要約したいテキストを入力（例：https://... または 記事の本文）"
+              placeholder="記事URLまたは要約したいテキストを入力&#10;&#10;例: https://... または 記事の本文&#10;&#10;前田裕二の「ファクト→抽象化→転用」フレームワークで要約します"
               value={summaryInput}
               onChange={(e) => setSummaryInput(e.target.value)}
-              rows={3}
+              rows={5}
             />
             <Button
               onClick={() => summarize.mutate({ input: summaryInput })}
@@ -118,9 +56,9 @@ export default function ContentPage() {
               className="w-full"
             >
               {summarize.isPending ? (
-                <><Loader2 className="h-4 w-4 animate-spin mr-2" />要約中...</>
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />分析中...</>
               ) : (
-                <><Sparkles className="h-4 w-4 mr-2" />AI要約を生成</>
+                <><Sparkles className="h-4 w-4 mr-2" />メモの魔力式で要約</>
               )}
             </Button>
             {generatedSummary && (
@@ -139,37 +77,32 @@ export default function ContentPage() {
           </CardContent>
         </Card>
 
-        {/* Infographic Generator */}
+        {/* How to Use */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Image className="h-5 w-5 text-primary" />
-              インフォグラフィック構成案
+              <BookOpen className="h-5 w-5 text-primary" />
+              メモの魔力フレームワーク
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Textarea
-              placeholder="トピックを入力（例：米国経済とゴールド・ポンドの相関関係、FRB政策金利が各通貨に与える影響、地政学リスクとマネーフロー）"
-              value={infoTopic}
-              onChange={(e) => setInfoTopic(e.target.value)}
-              rows={3}
-            />
-            <Button
-              onClick={() => generateInfographic.mutate({ topic: infoTopic })}
-              disabled={!infoTopic.trim() || generateInfographic.isPending}
-              className="w-full"
-            >
-              {generateInfographic.isPending ? (
-                <><Loader2 className="h-4 w-4 animate-spin mr-2" />生成中...</>
-              ) : (
-                <><Sparkles className="h-4 w-4 mr-2" />構成案を生成</>
-              )}
-            </Button>
-            {generatedInfographic && (
-              <div className="p-4 rounded-lg bg-secondary/50">
-                <Streamdown>{generatedInfographic}</Streamdown>
+            <div className="space-y-3 text-sm">
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <h4 className="font-semibold mb-1">📝 ステップ1: ファクト</h4>
+                <p className="text-muted-foreground">見たこと、聞いたこと、感じたことをそのまま書く</p>
               </div>
-            )}
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <h4 className="font-semibold mb-1">🔍 ステップ2: 抽象化</h4>
+                <p className="text-muted-foreground">「なぜ？」「ここから何が言えるか？」を考える</p>
+              </div>
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <h4 className="font-semibold mb-1">💡 ステップ3: 転用</h4>
+                <p className="text-muted-foreground">抽象化した気づきを、自分の仕事や生活にどう活かすか</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4">
+              前田裕二さんの「メモの魔力」より。すべての出来事に学びがあります。
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -185,13 +118,13 @@ function ContentHistory() {
 
   if (!contents || contents.length === 0) return null;
 
-  const statusLabels: Record<string, string> = { draft: "下書き", approved: "承認済み", posted: "投稿済み" };
+  const statusLabels: Record<string, string> = { draft: "下書き", approved: "承認済み", posted: "完了" };
   const statusColors: Record<string, string> = {
     draft: "bg-yellow-500/20 text-yellow-400",
     approved: "bg-green-500/20 text-green-400",
     posted: "bg-blue-500/20 text-blue-400",
   };
-  const typeLabels: Record<string, string> = { x_post: "X投稿", infographic: "インフォグラフィック", news_summary: "ニュースサマリー", summary: "AI要約" };
+  const typeLabels: Record<string, string> = { summary: "メモの魔力式 要約", x_post: "メモ分析", infographic: "思考整理", news_summary: "サマリー" };
 
   return (
     <Card>
