@@ -4,17 +4,21 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import {
-  getAllLineUsers, getMessages, getMessagesByCategory,
+  getAllLineUsers, getMessages, getMessagesByType,
   getRecentNewsDeliveries, getAllReminders, createReminder,
   updateReminderStatus, deleteReminder,
   getGeneratedContent, saveGeneratedContent, updateContentStatus,
   getActiveLineUsers,
+  createMemo, getMemos, getMemoById, updateMemoStatus,
+  saveCategorization, getCategorizationByMemoId, updateCategorization,
+  saveAnalysisResult, getAnalysisResultByMemoId,
 } from "./db";
-import { generateXPost, generateInfographicStructure, summarizeArticle } from "./llm-handlers";
+import { generateXPost, generateInfographicStructure, summarizeArticle, analyzeMemoMaedaStyle } from "./llm-handlers";
 import { extractUrl, scrapeUrl } from "./scraper";
 import { sendMorningNews } from "./scheduler";
 import { pushMessage, textMessage } from "./line";
 import { setupRichMenu } from "./richmenu";
+import { memosRouter } from "./routers_memos";
 
 export const appRouter = router({
   system: systemRouter,
@@ -37,15 +41,17 @@ export const appRouter = router({
     list: protectedProcedure
       .input(z.object({
         limit: z.number().min(1).max(200).default(50),
-        category: z.string().optional(),
+        messageType: z.string().optional(),
       }).optional())
       .query(async ({ input }) => {
-        return getMessages(input?.limit ?? 50, input?.category);
+        return getMessages(input?.limit ?? 50, input?.messageType);
       }),
     stats: protectedProcedure.query(async () => {
-      return getMessagesByCategory();
+      return getMessagesByType();
     }),
   }),
+
+  memos: memosRouter,
 
   news: router({
     history: protectedProcedure

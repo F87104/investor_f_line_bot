@@ -360,3 +360,135 @@ export async function generateNewsSummary(newsData: string): Promise<string> {
     return "＼おはようございます🐻🌈／\nごめんね、今日のニュースの取得に\nちょっと失敗しちゃった💦\n\nまた後で配信するね✨\n\n投資家Fより💌";
   }
 }
+
+
+// ─── Maeda Yuji Memo Analysis (前田裕二「メモの魔力」メソッドベースの分析) ───
+const MAEDA_YUJI_PERSONA = `あなたは「前田裕二」本人として振る舞います。以下の特徴を完全に再現してください。
+
+【キャラクター設定】
+- 名前: 前田裕二
+- 専門: 起業家、SHOWROOM創業者、「メモの魔力」著者
+- 思考法: 「ファクト→抽象化→転用」フレームワーク
+- 特徴: 観察力が高い、ビジネスチャンスを見出す、実行志向、地域特性を重視
+- 文体: 直接的で明快、具体例を多用、問いかけ形式、ポジティブ志向
+
+【メモ分析の視点（必ず反映すること）】
+- ユーザーのファクト（事実）を認識する
+- 「ここから何が読み取れるか」を深く分析する
+- より深い抽象化を提示する
+- 複数の転用パターンを提案する
+- 「だからあなたは次にこうしてみては？」と実行案を示す
+- すべてを「ビジネスチャンス」として捉える
+
+【文章構成パターン】
+1. ユーザーのファクトへの共感・認識
+2. 「ここから何が言えるか」という深い洞察
+3. 複数の転用パターン提案
+4. 実行可能な次のアクション
+5. 前向きなまとめ
+
+【言葉選びの特徴】
+- 一人称は「僕」
+- 「〜ですね」「〜だと思います」という丁寧だが直接的な表現
+- 短い文で論理的に構成
+- 具体的な事例を交える
+- 「なぜ？」「だから？」という問いかけを活用
+- 前向きで実行志向的な表現
+
+【禁止事項】
+- 曖昧な表現は避ける
+- 長文にしない（LINEメッセージは500文字以内）
+- 上から目線にならない
+- 理論だけで終わらない（必ず実行案を示す）`;
+
+export async function analyzeMemoMaedaStyle(factContent: string, userAbstraction?: string, userConcrete?: string, userTransfer?: string): Promise<{
+  maedaAbstraction: string;
+  maedaConcrete: string;
+  maedaTransfer: string;
+  maedaInsight: string;
+}> {
+  try {
+    const userInputContext = userAbstraction || userConcrete || userTransfer
+      ? `\n\nユーザーの仕分け結果:\n${userAbstraction ? `【抽象化】${userAbstraction}` : ""}${userConcrete ? `\n【具体化】${userConcrete}` : ""}${userTransfer ? `\n【転用】${userTransfer}` : ""}`
+      : "";
+
+    const result = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `${MAEDA_YUJI_PERSONA}
+
+【メモ分析の指示】
+ユーザーが入力したメモ（ファクト）に対して、前田裕二として以下の4つの分析を提供してください。
+
+1. 【抽象化】ファクトから何が読み取れるか、より深い本質を指摘する
+2. 【具体化】その法則が当てはまる別の具体例を2-3個提示する
+3. 【転用】この洞察をビジネスや人生にどう活かすか、複数のパターンを提案する
+4. 【インサイト】前田裕二ならではの視点で、ユーザーへの実行提案
+
+各セクションは150文字以内で、簡潔かつ実行可能な形で提示してください。`,
+        },
+        {
+          role: "user",
+          content: `以下のメモを前田裕二のスタイルで分析してください:${userInputContext}\n\n【ユーザーのメモ】\n${factContent}`,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "memo_analysis",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              maedaAbstraction: {
+                type: "string",
+                description: "前田裕二による抽象化分析",
+              },
+              maedaConcrete: {
+                type: "string",
+                description: "前田裕二による具体例",
+              },
+              maedaTransfer: {
+                type: "string",
+                description: "前田裕二による転用パターン",
+              },
+              maedaInsight: {
+                type: "string",
+                description: "前田裕二からの実行提案",
+              },
+            },
+            required: ["maedaAbstraction", "maedaConcrete", "maedaTransfer", "maedaInsight"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    const content = result.choices[0]?.message?.content;
+    if (typeof content === "string") {
+      const parsed = JSON.parse(content);
+      return {
+        maedaAbstraction: parsed.maedaAbstraction || "分析に失敗しました",
+        maedaConcrete: parsed.maedaConcrete || "分析に失敗しました",
+        maedaTransfer: parsed.maedaTransfer || "分析に失敗しました",
+        maedaInsight: parsed.maedaInsight || "分析に失敗しました",
+      };
+    }
+
+    return {
+      maedaAbstraction: "分析に失敗しました",
+      maedaConcrete: "分析に失敗しました",
+      maedaTransfer: "分析に失敗しました",
+      maedaInsight: "分析に失敗しました",
+    };
+  } catch (e) {
+    console.error("[LLM] Maeda memo analysis error:", e);
+    return {
+      maedaAbstraction: "分析に失敗しました",
+      maedaConcrete: "分析に失敗しました",
+      maedaTransfer: "分析に失敗しました",
+      maedaInsight: "分析に失敗しました",
+    };
+  }
+}

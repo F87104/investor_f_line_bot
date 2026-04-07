@@ -4,6 +4,9 @@ import {
   InsertUser, users,
   lineUsers, InsertLineUser,
   messages, InsertMessage,
+  memos, InsertMemo, Memo,
+  categorizations, InsertCategorization, Categorization,
+  analysisResults, InsertAnalysisResult, AnalysisResult,
   newsDeliveries, InsertNewsDelivery,
   reminders, InsertReminder,
   generatedContent, InsertGeneratedContent,
@@ -123,24 +126,24 @@ export async function saveMessage(msg: InsertMessage) {
   await db.insert(messages).values(msg);
 }
 
-export async function getMessages(limit = 50, category?: string) {
+export async function getMessages(limit = 50, messageType?: string) {
   const db = await getDb();
   if (!db) return [];
-  if (category && category !== "all") {
+  if (messageType && messageType !== "all") {
     return db.select().from(messages)
-      .where(eq(messages.category, category as any))
+      .where(eq(messages.messageType, messageType as any))
       .orderBy(desc(messages.createdAt)).limit(limit);
   }
   return db.select().from(messages).orderBy(desc(messages.createdAt)).limit(limit);
 }
 
-export async function getMessagesByCategory() {
+export async function getMessagesByType() {
   const db = await getDb();
   if (!db) return [];
   return db.select({
-    category: messages.category,
+    messageType: messages.messageType,
     count: sql<number>`count(*)`,
-  }).from(messages).groupBy(messages.category);
+  }).from(messages).groupBy(messages.messageType);
 }
 
 // ─── News Delivery helpers ───
@@ -215,4 +218,76 @@ export async function updateContentStatus(id: number, status: "draft" | "approve
   const db = await getDb();
   if (!db) return;
   await db.update(generatedContent).set({ status }).where(eq(generatedContent.id, id));
+}
+
+// ─── Memo helpers ───
+export async function createMemo(memo: InsertMemo): Promise<Memo | null> {
+  const db = await getDb();
+  if (!db) return null;
+  await db.insert(memos).values(memo);
+  // Fetch the latest created memo
+  const created = await db.select().from(memos).orderBy(desc(memos.createdAt)).limit(1);
+  return created[0] || null;
+}
+
+export async function getMemos(lineUserId: string, limit = 20): Promise<Memo[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(memos)
+    .where(eq(memos.lineUserId, lineUserId))
+    .orderBy(desc(memos.createdAt))
+    .limit(limit);
+}
+
+export async function getMemoById(id: number): Promise<Memo | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(memos).where(eq(memos.id, id)).limit(1);
+  return result[0] || null;
+}
+
+export async function updateMemoStatus(id: number, status: "draft" | "categorizing" | "completed"): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(memos).set({ status, updatedAt: new Date() }).where(eq(memos.id, id));
+}
+
+// ─── Categorization helpers ───
+export async function saveCategorization(categorization: InsertCategorization): Promise<Categorization | null> {
+  const db = await getDb();
+  if (!db) return null;
+  await db.insert(categorizations).values(categorization);
+  // Fetch the latest created categorization
+  const created = await db.select().from(categorizations).orderBy(desc(categorizations.createdAt)).limit(1);
+  return created[0] || null;
+}
+
+export async function getCategorizationByMemoId(memoId: number): Promise<Categorization | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(categorizations).where(eq(categorizations.memoId, memoId)).limit(1);
+  return result[0] || null;
+}
+
+export async function updateCategorization(id: number, updates: Partial<Categorization>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(categorizations).set({ ...updates, updatedAt: new Date() }).where(eq(categorizations.id, id));
+}
+
+// ─── Analysis Result helpers ───
+export async function saveAnalysisResult(analysis: InsertAnalysisResult): Promise<AnalysisResult | null> {
+  const db = await getDb();
+  if (!db) return null;
+  await db.insert(analysisResults).values(analysis);
+  // Fetch the latest created analysis
+  const created = await db.select().from(analysisResults).orderBy(desc(analysisResults.createdAt)).limit(1);
+  return created[0] || null;
+}
+
+export async function getAnalysisResultByMemoId(memoId: number): Promise<AnalysisResult | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(analysisResults).where(eq(analysisResults.memoId, memoId)).limit(1);
+  return result[0] || null;
 }

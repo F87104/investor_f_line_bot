@@ -4,18 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, ArrowDownUp } from "lucide-react";
 
-const categories = [
+const messageTypes = [
   { value: "all", label: "すべて" },
-  { value: "investment", label: "投資", color: "bg-amber-500/20 text-amber-400" },
-  { value: "ai", label: "AI", color: "bg-blue-500/20 text-blue-400" },
-  { value: "slide_project", label: "スライド", color: "bg-green-500/20 text-green-400" },
-  { value: "idea", label: "アイデア", color: "bg-purple-500/20 text-purple-400" },
-  { value: "general", label: "一般", color: "bg-gray-500/20 text-gray-400" },
+  { value: "memo_input", label: "メモ入力", color: "bg-blue-500/20 text-blue-400" },
+  { value: "workflow_step", label: "ワークフロー", color: "bg-green-500/20 text-green-400" },
+  { value: "analysis_result", label: "分析結果", color: "bg-amber-500/20 text-amber-400" },
+  { value: "notification", label: "通知", color: "bg-purple-500/20 text-purple-400" },
 ];
 
 export default function MessagesPage() {
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const stableInput = useMemo(() => ({ limit: 100, category: selectedCategory === "all" ? undefined : selectedCategory }), [selectedCategory]);
+  const [selectedMessageType, setSelectedMessageType] = useState("all");
+  const stableInput = useMemo(() => ({ limit: 100, messageType: selectedMessageType === "all" ? undefined : selectedMessageType }), [selectedMessageType]);
   const { data: messages, isLoading } = trpc.messages.list.useQuery(stableInput);
 
   return (
@@ -25,17 +24,17 @@ export default function MessagesPage() {
         <p className="text-muted-foreground mt-1">LINEボットとのメッセージ履歴（自動分類済み）</p>
       </div>
 
-      {/* Category Filter */}
+      {/* Message Type Filter */}
       <div className="flex flex-wrap gap-2">
-        {categories.map((cat) => (
+        {messageTypes.map((mt) => (
           <Button
-            key={cat.value}
-            variant={selectedCategory === cat.value ? "default" : "outline"}
+            key={mt.value}
+            variant={selectedMessageType === mt.value ? "default" : "outline"}
             size="sm"
-            onClick={() => setSelectedCategory(cat.value)}
-            className={selectedCategory === cat.value ? "" : "bg-transparent"}
+            onClick={() => setSelectedMessageType(mt.value)}
+            className={selectedMessageType === mt.value ? "" : "bg-transparent"}
           >
-            {cat.label}
+            {mt.label}
           </Button>
         ))}
       </div>
@@ -58,13 +57,13 @@ export default function MessagesPage() {
           ) : messages && messages.length > 0 ? (
             <div className="space-y-3">
               {messages.map((msg) => {
-                const cat = categories.find(c => c.value === msg.category) ?? categories[5];
+                const mt = messageTypes.find(m => m.value === msg.messageType) ?? messageTypes[4];
                 return (
                   <div key={msg.id} className="p-3 rounded-lg border border-border/50 hover:border-border transition-colors">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${cat?.color ?? "bg-gray-500/20 text-gray-400"}`}>
-                          {cat?.label ?? msg.category}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${mt?.color ?? "bg-gray-500/20 text-gray-400"}`}>
+                          {mt?.label ?? msg.messageType}
                         </span>
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <ArrowDownUp className="h-3 w-3" />

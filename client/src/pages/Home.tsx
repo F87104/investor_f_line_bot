@@ -5,20 +5,18 @@ import { MessageSquare, Users, Newspaper, Bell, TrendingUp, Sparkles, Menu, Load
 import { toast } from "sonner";
 import { useState } from "react";
 
-const categoryLabels: Record<string, string> = {
-  investment: "投資",
-  ai: "AI",
-  slide_project: "スライド",
-  idea: "アイデア",
-  general: "一般",
+const messageTypeLabels: Record<string, string> = {
+  memo_input: "メモ入力",
+  workflow_step: "ワークフロー",
+  analysis_result: "分析結果",
+  notification: "通知",
 };
 
-const categoryColors: Record<string, string> = {
-  investment: "text-amber-400",
-  ai: "text-blue-400",
-  slide_project: "text-green-400",
-  idea: "text-purple-400",
-  general: "text-gray-400",
+const messageTypeColors: Record<string, string> = {
+  memo_input: "text-blue-400",
+  workflow_step: "text-green-400",
+  analysis_result: "text-amber-400",
+  notification: "text-purple-400",
 };
 
 function RichMenuButton() {
@@ -72,7 +70,7 @@ export default function Home() {
   const { data: newsHistory } = trpc.news.history.useQuery({ limit: 5 });
   const { data: reminders } = trpc.reminders.list.useQuery();
 
-  const totalMessages = messageStats?.reduce((sum, s) => sum + Number(s.count), 0) ?? 0;
+  const totalMessages = messageStats?.reduce((sum: number, s: any) => sum + Number(s.count), 0) ?? 0;
   const activeReminders = reminders?.filter(r => r.isActive).length ?? 0;
 
   return (
@@ -164,10 +162,10 @@ export default function Home() {
           <CardContent>
             {messageStats && messageStats.length > 0 ? (
               <div className="space-y-3">
-                {messageStats.map((stat) => (
-                  <div key={stat.category} className="flex items-center justify-between">
-                    <span className={`text-sm font-medium ${categoryColors[stat.category ?? "general"]}`}>
-                      {categoryLabels[stat.category ?? "general"] ?? stat.category}
+                {messageStats.map((stat: any) => (
+                  <div key={stat.messageType} className="flex items-center justify-between">
+                    <span className={`text-sm font-medium ${messageTypeColors[stat.messageType ?? "memo_input"]}`}>
+                      {messageTypeLabels[stat.messageType ?? "memo_input"] ?? stat.messageType}
                     </span>
                     <span className="text-sm text-muted-foreground">{Number(stat.count)} 件</span>
                   </div>
@@ -192,8 +190,8 @@ export default function Home() {
                 {recentMessages.map((msg) => (
                   <div key={msg.id} className="flex flex-col gap-1 p-2 rounded-lg bg-secondary/50">
                     <div className="flex items-center justify-between">
-                      <span className={`text-xs font-medium ${categoryColors[msg.category ?? "general"]}`}>
-                        {categoryLabels[msg.category ?? "general"]}
+                      <span className={`text-xs font-medium ${messageTypeColors[msg.messageType ?? "memo_input"]}`}>
+                        {messageTypeLabels[msg.messageType ?? "memo_input"]}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {msg.direction === "incoming" ? "受信" : "送信"}

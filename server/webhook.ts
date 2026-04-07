@@ -118,9 +118,9 @@ async function processTextMessage(event: LineEvent) {
       const args = text.slice(cmd.length).trim();
       const response = await handler(args);
       // Save incoming message
-      await saveMessage({ lineUserId: userId, direction: "incoming", content: text, category: "general" });
+      await saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "memo_input" });
       // Save outgoing message
-      await saveMessage({ lineUserId: userId, direction: "outgoing", content: response, category: "general" });
+      await saveMessage({ lineUserId: userId, direction: "outgoing", content: response, messageType: "analysis_result" });
       await replyMessage(replyToken, [textMessage(response)]);
       return;
     }
@@ -130,7 +130,7 @@ async function processTextMessage(event: LineEvent) {
   const category = await classifyMessage(text);
 
   // Save incoming message with category
-  await saveMessage({ lineUserId: userId, direction: "incoming", content: text, category });
+  await saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "memo_input" });
 
   // Generate reply
   const reply = await generateReply(text, category);
@@ -138,7 +138,7 @@ async function processTextMessage(event: LineEvent) {
   const fullReply = `${categoryTag}\n\n${reply}`;
 
   // Save outgoing message
-  await saveMessage({ lineUserId: userId, direction: "outgoing", content: fullReply, category });
+  await saveMessage({ lineUserId: userId, direction: "outgoing", content: fullReply, messageType: "analysis_result" });
 
   await replyMessage(replyToken, [textMessage(fullReply)]);
 }

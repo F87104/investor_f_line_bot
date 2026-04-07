@@ -84,3 +84,18 @@
 - [x] DBスキーマにmorning_briefing topicを追加
 - [x] テスト25件全パス（スコープ拡大テスト9件追加）
 - [x] チェックポイント保存
+
+
+## Phase 13: コンセプト変更 - 前田裕二「メモの魔力」メソッドベースのメモアプリへ
+- [x] 前田裕二さんの思考フレームワーク調査（著書・X・YouTube等から抽出）
+- [x] MAEDA_FRAMEWORK.md作成（フレームワーク・思考特性・メモアプリ活用法をドキュメント化）
+- [x] DBスキーマの再設計（memos・categorizations・analysisResults テーブル作成）
+- [x] messages テーブルの category → messageType への変更
+- [x] webhook.ts・db.ts・routers.ts・Home.tsx・Messages.tsx の全コード修正
+- [x] LLMプロンプトに前田裕二さんの文体・思考パターンを組み込み（analyzeMemoMaedaStyle関数追加）
+- [x] DBヘルパー関数追加（memo・categorization・analysisResult管理）
+- [x] tRPCエンドポイント追加（memosルーター）
+- [x] ユニットテスト30件全パス
+- [ ] ダッシュボードUIの再設計（メモ入力→抽象/具体/転用仕分け→答え合わせフロー）
+- [ ] LINE Webhookの更新（メモ入力・ワークフロー対応）
+- [ ] チェックポイント保存
