@@ -2,7 +2,7 @@ import { Request, Response, Express } from "express";
 import express from "express";
 import { verifyLineSignature, replyMessage, textMessage, pushMessage, getUserProfile } from "./line";
 import { upsertLineUser, saveMessage, createMemo, getMemos, getMemoById } from "./db";
-import { classifyMessage, generateReply, generateShiwakeGuide, generateKotaeawase, summarizeArticle } from "./llm-handlers";
+import { classifyAndReply, generateShiwakeGuide, generateKotaeawase, summarizeArticle } from "./llm-handlers";
 import { isUrl, extractUrl, scrapeUrl } from "./scraper";
 
 // ─── Webhook Event Types ───
@@ -402,34 +402,28 @@ async function processTextMessage(event: LineEvent) {
     return;
   }
 
-  // ─── デフォルト: 自動メモ保存 → 前田裕二的考察 → 仕分けガイドへ ───
+  // ─── デフォルト: 自動メモ保存 → 前田裕二的考察（1回のLLM呼び出しで分類＋応答） ───
   try {
-    // メッセージを保存
-    await saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "memo_input" });
+    // メッセージ保存とLLM呼び出しを並行実行（高速化）
+    const [, , llmResult] = await Promise.all([
+      saveMessage({ lineUserId: userId, direction: "incoming", content: text, messageType: "memo_input" }),
+      createMemo({ lineUserId: userId, factContent: text }).catch(e => { console.error("[Webhook] Auto memo save error:", e); return null; }),
+      classifyAndReply(text),
+    ]);
 
-    // メモとしてDBに保存
-    let memoId: number | undefined;
-    try {
-      const memo = await createMemo({ lineUserId: userId, factContent: text });
-      memoId = memo?.id;
-    } catch (e) {
-      console.error("[Webhook] Auto memo save error:", e);
-    }
-
-    // カテゴリ分類
-    const category = await classifyMessage(text);
+    const { category, reply } = llmResult;
     const categoryTag = `${CATEGORY_EMOJI[category] || "💬"} ${CATEGORY_LABEL[category] || "一般"}`;
 
-    // 前田裕二的な考察を生成
-    const reply = await generateReply(text, category);
-
     // セッションにメモ内容を保存（仕分けワークに使う）
-    userSessions.set(userId, { currentMemoId: memoId, factContent: text, step: "waiting_shiwake" });
+    userSessions.set(userId, { factContent: text, step: "waiting_shiwake" });
 
     const fullReply = `📝 メモを保存しました [${categoryTag}]\n\n${reply}\n\n---\n🧠「仕分け」→ 仕分けワーク開始\n✅「答え合わせ」→ 前田裕二的分析\n💬 続けてメモを送ってもOK！`;
 
-    await saveMessage({ lineUserId: userId, direction: "outgoing", content: fullReply, messageType: "analysis_result" });
-    await replyMessage(replyToken, [textMessage(fullReply)]);
+    // 返信とDB保存を並行実行
+    await Promise.all([
+      replyMessage(replyToken, [textMessage(fullReply)]),
+      saveMessage({ lineUserId: userId, direction: "outgoing", content: fullReply, messageType: "analysis_result" }),
+    ]);
     console.log(`[Webhook] Auto-memo reply sent (category: ${category})`);
   } catch (err) {
     console.error("[Webhook] Default reply error:", err);
