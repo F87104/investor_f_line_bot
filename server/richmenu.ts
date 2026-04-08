@@ -39,28 +39,28 @@ function getRichMenuDefinition(): RichMenuObject {
       // Row 1: メモ入力 | 仕分けワーク | 答え合わせ
       {
         bounds: { x: 0, y: 0, width: colW, height: rowH },
-        action: { type: "message", text: "/memo" },
+        action: { type: "message", text: "メモ" },
       },
       {
         bounds: { x: colW, y: 0, width: colW, height: rowH },
-        action: { type: "message", text: "/shiwake" },
+        action: { type: "message", text: "仕分け" },
       },
       {
         bounds: { x: colW * 2, y: 0, width: 2500 - colW * 2, height: rowH },
-        action: { type: "message", text: "/kotaeawase" },
+        action: { type: "message", text: "答え合わせ" },
       },
       // Row 2: メモ履歴 | マイノート | ヘルプ
       {
         bounds: { x: 0, y: rowH, width: colW, height: 843 - rowH },
-        action: { type: "message", text: "/history" },
+        action: { type: "message", text: "履歴" },
       },
       {
         bounds: { x: colW, y: rowH, width: colW, height: 843 - rowH },
-        action: { type: "message", text: "/mynote" },
+        action: { type: "message", text: "マイノート" },
       },
       {
         bounds: { x: colW * 2, y: rowH, width: 2500 - colW * 2, height: 843 - rowH },
-        action: { type: "message", text: "/help" },
+        action: { type: "message", text: "ヘルプ" },
       },
     ],
   };

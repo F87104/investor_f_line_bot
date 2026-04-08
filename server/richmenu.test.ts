@@ -97,12 +97,12 @@ describe("Rich Menu Setup", () => {
     const lastCall = callArgs[callArgs.length - 1][0];
     expect(lastCall.areas).toHaveLength(6);
 
-    // Verify button actions contain expected memo magic commands
+    // Verify button actions contain expected Japanese commands
     const actions = lastCall.areas.map((a: any) => a.action.text);
-    expect(actions.some((t: string) => t.includes("/memo"))).toBe(true);
-    expect(actions.some((t: string) => t.includes("/shiwake"))).toBe(true);
-    expect(actions.some((t: string) => t.includes("/kotaeawase"))).toBe(true);
-    expect(actions.some((t: string) => t.includes("/history"))).toBe(true);
-    expect(actions.some((t: string) => t.includes("/help"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("メモ"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("仕分け"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("答え合わせ"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("履歴"))).toBe(true);
+    expect(actions.some((t: string) => t.includes("ヘルプ"))).toBe(true);
   });
 });

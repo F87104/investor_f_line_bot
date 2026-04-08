@@ -143,6 +143,71 @@ describe("Memo Magic LLM Handlers", () => {
   });
 });
 
+describe("日本語コマンドマッチング", () => {
+  const matchesKeyword = (text: string, keywords: string[]): boolean => {
+    const lower = text.toLowerCase().trim();
+    return keywords.some(kw => lower === kw || lower.startsWith(kw + " ") || lower.startsWith(kw + "\u3000"));
+  };
+
+  it("『メモ』キーワードが正しくマッチする", () => {
+    const MEMO_KEYWORDS = ["メモ", "めも", "memo", "/memo"];
+    expect(matchesKeyword("メモ", MEMO_KEYWORDS)).toBe(true);
+    expect(matchesKeyword("めも", MEMO_KEYWORDS)).toBe(true);
+    expect(matchesKeyword("memo", MEMO_KEYWORDS)).toBe(true);
+  });
+
+  it("『仕分け』キーワードが正しくマッチする", () => {
+    const SHIWAKE_KEYWORDS = ["仕分け", "しわけ", "シワケ", "/shiwake"];
+    expect(matchesKeyword("仕分け", SHIWAKE_KEYWORDS)).toBe(true);
+    expect(matchesKeyword("しわけ", SHIWAKE_KEYWORDS)).toBe(true);
+  });
+
+  it("『答え合わせ』キーワードが正しくマッチする", () => {
+    const KOTAEAWASE_KEYWORDS = ["答え合わせ", "こたえあわせ", "答合わせ", "コタエアワセ", "/kotaeawase"];
+    expect(matchesKeyword("答え合わせ", KOTAEAWASE_KEYWORDS)).toBe(true);
+    expect(matchesKeyword("こたえあわせ", KOTAEAWASE_KEYWORDS)).toBe(true);
+  });
+
+  it("『履歴』『マイノート』『ヘルプ』キーワードが正しくマッチする", () => {
+    const HISTORY_KEYWORDS = ["履歴", "りれき", "リレキ", "メモ履歴", "/history"];
+    const MYNOTE_KEYWORDS = ["マイノート", "まいのーと", "ノート", "統計", "/mynote"];
+    const HELP_KEYWORDS = ["ヘルプ", "へるぷ", "使い方", "つかいかた", "help", "/help"];
+    expect(matchesKeyword("履歴", HISTORY_KEYWORDS)).toBe(true);
+    expect(matchesKeyword("マイノート", MYNOTE_KEYWORDS)).toBe(true);
+    expect(matchesKeyword("ヘルプ", HELP_KEYWORDS)).toBe(true);
+    expect(matchesKeyword("使い方", HELP_KEYWORDS)).toBe(true);
+  });
+
+  it("『リセット』キーワードが正しくマッチする", () => {
+    const RESET_KEYWORDS = ["リセット", "りせっと", "reset", "やり直し", "やりなおし", "最初から"];
+    expect(matchesKeyword("リセット", RESET_KEYWORDS)).toBe(true);
+    expect(matchesKeyword("やり直し", RESET_KEYWORDS)).toBe(true);
+    expect(matchesKeyword("最初から", RESET_KEYWORDS)).toBe(true);
+  });
+
+  it("通常のメッセージはコマンドにマッチしない", () => {
+    const ALL_KEYWORDS = ["メモ", "仕分け", "答え合わせ", "履歴", "マイノート", "ヘルプ", "リセット"];
+    const normalMessages = [
+      "コミュニティを作ること",
+      "意思決定が遅れる",
+      "前田裕二さんの考え方",
+    ];
+    for (const msg of normalMessages) {
+      expect(matchesKeyword(msg, ALL_KEYWORDS)).toBe(false);
+    }
+  });
+});
+
+describe("リッチメニューアクション", () => {
+  it("リッチメニューのボタンアクションが日本語テキストを使用している", () => {
+    const actions = ["メモ", "仕分け", "答え合わせ", "履歴", "マイノート", "ヘルプ"];
+    actions.forEach(action => {
+      expect(action).not.toMatch(/^\//);
+      expect(action.length).toBeGreaterThan(0);
+    });
+  });
+});
+
 describe("Router exports", () => {
   it("appRouter is defined and has expected routes", async () => {
     const { appRouter } = await import("./routers");

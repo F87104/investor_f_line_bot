@@ -10,8 +10,8 @@ import { Bell, Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const typeLabels: Record<string, string> = {
-  x_post: "メモ習慣リマインダー",
-  slide_creation: "振り返りリマインダー",
+  memo_reminder: "メモ習慣リマインダー",
+  shiwake_prompt: "振り返りリマインダー",
   custom: "カスタム",
 };
 
@@ -19,7 +19,7 @@ export default function RemindersPage() {
   const { data: reminders, isLoading } = trpc.reminders.list.useQuery();
   const utils = trpc.useUtils();
 
-  const [newType, setNewType] = useState<"x_post" | "slide_creation" | "custom">("x_post");
+  const [newType, setNewType] = useState<"memo_reminder" | "shiwake_prompt" | "custom">("memo_reminder");
   const [newMessage, setNewMessage] = useState("");
   const [newCron, setNewCron] = useState("0 9");
 
@@ -46,8 +46,8 @@ export default function RemindersPage() {
   });
 
   const defaultMessages: Record<string, string> = {
-    x_post: "📝 メモの時間です！今日感じたこと、気づいたことをメモしましょう。\n「メモを書く」でワークを始められます。",
-    slide_creation: "🔍 振り返りの時間です！今週のメモを見返して、抽象化・転用を深めましょう。",
+    memo_reminder: "📝 メモの時間です！今日感じたこと、気づいたことをメモしましょう。\n「メモを書く」でワークを始められます。",
+    shiwake_prompt: "🔍 振り返りの時間です！今週のメモを見返して、抽象化・転用を深めましょう。",
     custom: "",
   };
 
@@ -71,7 +71,7 @@ export default function RemindersPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">タイプ</label>
               <Select value={newType} onValueChange={(v) => {
-                const t = v as "x_post" | "slide_creation" | "custom";
+                const t = v as "memo_reminder" | "shiwake_prompt" | "custom";
                 setNewType(t);
                 if (defaultMessages[t]) setNewMessage(defaultMessages[t]);
               }}>
@@ -79,8 +79,8 @@ export default function RemindersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="x_post">メモ習慣リマインダー</SelectItem>
-                  <SelectItem value="slide_creation">振り返りリマインダー</SelectItem>
+                  <SelectItem value="memo_reminder">メモ習慣リマインダー</SelectItem>
+                  <SelectItem value="shiwake_prompt">振り返りリマインダー</SelectItem>
                   <SelectItem value="custom">カスタム</SelectItem>
                 </SelectContent>
               </Select>

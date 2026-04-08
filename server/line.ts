@@ -3,11 +3,23 @@ import { ENV } from "./_core/env";
 
 // ─── LINE Signature Verification ───
 export function verifyLineSignature(body: string, signature: string): boolean {
+  if (!ENV.lineChannelSecret) {
+    console.error("[LINE] lineChannelSecret is empty!");
+    return false;
+  }
   const hash = crypto
-    .createHmac("SHA256", ENV.lineChannelSecret)
-    .update(body)
+    .createHmac("sha256", ENV.lineChannelSecret)
+    .update(body, "utf8")
     .digest("base64");
-  return hash === signature;
+  console.log(`[LINE] Signature check: computed=${hash.substring(0, 10)}... received=${signature.substring(0, 10)}...`);
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(hash, "base64"),
+      Buffer.from(signature, "base64")
+    );
+  } catch {
+    return false;
+  }
 }
 
 // ─── LINE Messaging API ───

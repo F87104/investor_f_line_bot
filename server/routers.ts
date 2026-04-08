@@ -71,7 +71,7 @@ export const appRouter = router({
     }),
     create: protectedProcedure
       .input(z.object({
-        type: z.enum(["x_post", "slide_creation", "custom"]),
+        type: z.enum(["memo_reminder", "shiwake_prompt", "custom"]),
         message: z.string().min(1),
         cronExpression: z.string().optional(),
       }))

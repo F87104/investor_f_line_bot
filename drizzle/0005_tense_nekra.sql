@@ -1,0 +1,1 @@
+ALTER TABLE `reminders` MODIFY COLUMN `type` enum('memo_reminder','shiwake_prompt','custom') NOT NULL;

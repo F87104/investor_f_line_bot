@@ -120,7 +120,7 @@ export type InsertNewsDelivery = typeof newsDeliveries.$inferInsert;
  */
 export const reminders = mysqlTable("reminders", {
   id: int("id").autoincrement().primaryKey(),
-  type: mysqlEnum("type", ["x_post", "slide_creation", "custom"]).notNull(),
+  type: mysqlEnum("type", ["memo_reminder", "shiwake_prompt", "custom"]).notNull(),
   message: text("message").notNull(),
   cronExpression: varchar("cronExpression", { length: 100 }),
   isActive: boolean("isActive").default(true).notNull(),
