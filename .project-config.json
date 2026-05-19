@@ -1,0 +1,49 @@
+{
+  "build_command": "pnpm run build",
+  "capabilities": [
+    "db",
+    "server",
+    "user"
+  ],
+  "dev_command": "pnpm run dev",
+  "env_vars": {
+    "DATABASE_URL": "mysql://2N2U1NXRetu2g6b.286ff675af05:Y4ebE5P2xI8wnfehBx81@gateway02.us-east-1.prod.aws.tidbcloud.com:4000/JLN5gkf3pmmcrvpQRq2rce?ssl={\"rejectUnauthorized\":true}",
+    "DRIZZLE_DATABASE_URL": "mysql://2N2U1NXRetu2g6b.286ff675af05:Y4ebE5P2xI8wnfehBx81@gateway02.us-east-1.prod.aws.tidbcloud.com:4000/JLN5gkf3pmmcrvpQRq2rce?ssl={\"rejectUnauthorized\":true}"
+  },
+  "experiments": [
+    "no_db_push"
+  ],
+  "git_remote": {
+    "repo_url": "s3://vida-prod-gitrepo/webdev-git/310519663341987478/JLN5gkf3pmmcrvpQRq2rce",
+    "access_key_id": "ASIAZV3A2ECZNSOCT46F",
+    "secret_access_key": "OoS52cqn3XwGjoM1+57H+sleaE/WZWeYsOFUYHlB",
+    "session_token": "IQoJb3JpZ2luX2VjEAoaCXVzLWVhc3QtMSJGMEQCICwdRKwIMSiShLpbMLRaWzrRF3ijQZtkRxXnGMf8rpvaAiA55Cl1g264PWU0sulYsTFx28bN2RLpXjOibtdcKJefKSr/AwjS//////////8BEAQaDDY2NTM4NjA5ODg2NiIMdcX9D+MvyyP2qIBGKtMDAU6sjRWvyo3Jln5VTdCvAP5MM+G3e0EK86NfrA1XZBDqpjiEYEaK1rAnxqQCYtMrvM6l5dd4BnGCbQr80AmZUCUw2WVEFduot1p6uLsleafk7Dye5kQHYyehTrqwEHANBxSycCw+gjh/1B7rY+8ikIpG81MiAgM2g76rTFpHs9mY1rbLkeFD+6Xm4viaz3hsY+mcCfGA1jsBpDyNGEn/OLTM0N8HZmuAC/SW2b1z+R7dxoDevTpEti32v6xeEKNAzunPC96BNmENqSEnOBz+YMFAo1U47GFCzQQrke7JAj34o9OI7kS0DjJc2Dy2AyFDk5mpMHO8tVNVBTYdaIX7IuSmoXFVAQghOu69kD0Moj9/tN1bLWgByDxILll1ci1wivxxaCkxNxP7NNrIpTDW2mbHNet9QEZX1JOKNho56FMY+oMheRWZG8hlL9AxJ0BcvJSsSYwdp1uSuEoHSMGJ104CkNJ8MoIUoYtbQ/HHNFVem5ndTwDrzD4Qh8VjH9DeKLhiRpfItKnZzgL1tWT6L2hSlG5iwRQpKJQdOfwGQjL7WwFzONrHWa9V+RMUKHoAAC1S7mXzM4dCZP9/lJUDFV4nOZG8l++kUVXYY+85FstSci8wrdGw0AY6ngGld29ddQ1TrmIaXRVKhwD6Q1anAlrOcfjG3LLftdrEHocpGURU4JD2c/oQY3a1rECa/96ZJLsWOipovlf4SmY7kThmU8TiPi2N+C4sFSuMZSPoKGP6yawQY0NJMczBROqGeZJwIW8hL/T8liGg0GFNhwpkgj1BE5YSkjm9gYi1/LiEo1BhvmdxqY9e44KC0SCV/qaNZGyFFE67b6wSuQ==",
+    "expiration": "2026-05-19T21:09:01.000Z"
+  },
+  "name": "investor_f_line_bot",
+  "path": "/home/ubuntu/investor_f_line_bot",
+  "port": 3000,
+  "secrets": {
+    "BUILT_IN_FORGE_API_KEY": "cCrjoLikY55ucrcGAaEVQQ",
+    "BUILT_IN_FORGE_API_URL": "https://forge.manus.ai",
+    "JWT_SECRET": "gmDmgFmUacBmfnCaVt7uQg",
+    "LINE_CHANNEL_ACCESS_TOKEN": "F/wvTy5Jj03ZEH7Ak1LRBBNMOwCl+Xx0OqGClzF/nPFKW+c3Z0env5Bwu7FJli+YCC4/tUn1nKXRxEucLB3Ul0In8pTnoNBGelKt2dfeMWp54rnSPINl5ZYG4kiHCxvjHcavU5u51kPNVNNMiUhv9gdB04t89/1O/w1cDnyilFU=",
+    "LINE_CHANNEL_ID": "2009237737",
+    "LINE_CHANNEL_SECRET": "2cfd8e39f4d55ebd0457812220ed625e",
+    "OAUTH_SERVER_URL": "https://api.manus.im",
+    "OWNER_NAME": "F",
+    "OWNER_OPEN_ID": "fyWMazr3cfPMzDmgHSWEpG",
+    "SLACK_BOT_TOKEN": "xoxb-11147504328741-11158906748662-FHFjAUvcBx9RrRq6uJwgRYOu",
+    "SLACK_SIGNING_SECRET": "535a62dbc7537b18bdc74544d458a750",
+    "VITE_ANALYTICS_ENDPOINT": "https://manus-analytics.com",
+    "VITE_ANALYTICS_WEBSITE_ID": "2aced963-873a-432b-b596-b387f3c69201",
+    "VITE_APP_ID": "JLN5gkf3pmmcrvpQRq2rce",
+    "VITE_APP_LOGO": "https://files.manuscdn.com/user_upload_by_module/web_dev_logo/310519663341987478/EyuuMNqEbAJlhiMe.png",
+    "VITE_APP_TITLE": "投資家F LINE Bot Assistant",
+    "VITE_FRONTEND_FORGE_API_KEY": "2XGzSPbpsKKmq25dRFj7Cj",
+    "VITE_FRONTEND_FORGE_API_URL": "https://forge.manus.ai",
+    "VITE_OAUTH_PORTAL_URL": "https://manus.im"
+  },
+  "template_id": "web-db-user",
+  "test_command": "pnpm test"
+}

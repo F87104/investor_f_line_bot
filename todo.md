@@ -139,3 +139,11 @@
 - [x] LLMプロンプト軽量化（MAEDA_PERSONA_SHORTに圧縮）
 - [x] テスト45件全パス
 - [x] チェックポイント保存
+
+## Phase 18: Slack Bot連携
+- [x] GitHubから最新コード（slack.ts, slack.test.ts, SLACK_SETUP.md）をpull
+- [x] Slack環境変数（SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET）の設定
+- [x] Slack Bot Token認証テスト（auth.test API）パス
+- [x] Slackルート登録確認（/api/slack/events, /api/slack/commands, /api/slack/health）
+- [x] 全テスト51件パス
+- [x] チェックポイント保存・再デプロイ
