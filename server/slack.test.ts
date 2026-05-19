@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { describe, expect, it } from "vitest";
-import { verifySlackSignature } from "./slack";
+import { shouldHandleSlackEvent, verifySlackSignature } from "./slack";
 
 function sign(secret: string, timestamp: string, rawBody: string) {
   const base = `v0:${timestamp}:${rawBody}`;
@@ -30,5 +30,53 @@ describe("Slack signature verification", () => {
     const rawBody = "token=abc&text=hello";
 
     expect(verifySlackSignature(rawBody, timestamp, sign(secret, timestamp, rawBody), secret)).toBe(false);
+  });
+});
+
+describe("Slack event routing", () => {
+  it("handles direct messages", () => {
+    expect(shouldHandleSlackEvent({
+      type: "message",
+      user: "U123",
+      text: "今日の気づき",
+      channel: "D123",
+      channel_type: "im",
+    })).toBe(true);
+  });
+
+  it("handles only the configured memo channel for normal channel messages", () => {
+    expect(shouldHandleSlackEvent({
+      type: "message",
+      user: "U123",
+      text: "今日の気づき",
+      channel: "C_MEMO",
+      channel_type: "channel",
+    }, "C_MEMO")).toBe(true);
+
+    expect(shouldHandleSlackEvent({
+      type: "message",
+      user: "U123",
+      text: "今日の気づき",
+      channel: "C_OTHER",
+      channel_type: "channel",
+    }, "C_MEMO")).toBe(false);
+  });
+
+  it("ignores bot and subtype events", () => {
+    expect(shouldHandleSlackEvent({
+      type: "message",
+      user: "U123",
+      text: "今日の気づき",
+      channel: "C_MEMO",
+      bot_id: "B123",
+    }, "C_MEMO")).toBe(false);
+
+    expect(shouldHandleSlackEvent({
+      type: "message",
+      user: "U123",
+      text: "今日の気づき",
+      channel: "C_MEMO",
+      subtype: "message_changed",
+    }, "C_MEMO")).toBe(false);
   });
 });

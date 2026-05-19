@@ -84,6 +84,15 @@ function cleanSlackText(text: string): string {
   return text.replace(/<@[A-Z0-9]+>/gi, "").trim();
 }
 
+export function shouldHandleSlackEvent(event: SlackEvent, memoChannelId = ENV.slackMemoChannelId): boolean {
+  if (event.bot_id || event.subtype) return false;
+  if (!event.user || !event.text || !event.channel) return false;
+  if (event.type === "app_mention") return true;
+  if (event.type !== "message") return false;
+  if (event.channel_type === "im") return true;
+  return Boolean(memoChannelId && event.channel === memoChannelId);
+}
+
 function matchesKeyword(text: string, keywords: string[]): boolean {
   const lower = text.toLowerCase().trim();
   return keywords.some(kw => lower === kw || lower.startsWith(`${kw.toLowerCase()} `) || lower.startsWith(`${kw.toLowerCase()}　`));
@@ -260,14 +269,14 @@ export function registerSlackRoutes(app: Express) {
     res.status(200).send();
 
     const event = body.event;
-    if (!event || event.bot_id || event.subtype) return;
-    if (event.type !== "app_mention" && !(event.type === "message" && event.channel_type === "im")) return;
-    if (!event.user || !event.text || !event.channel) return;
+    if (!event || !shouldHandleSlackEvent(event)) return;
 
     const channel = event.channel;
     const user = event.user;
     const text = event.text;
-    const threadTs = event.thread_ts || (event.type === "app_mention" ? event.ts : undefined);
+    const threadTs =
+      event.thread_ts ||
+      (event.type === "app_mention" || event.channel === ENV.slackMemoChannelId ? event.ts : undefined);
     void handleSlackText(body.team_id, user, text)
       .then(response => postSlackMessage(channel, response, threadTs))
       .catch(error => {
