@@ -214,6 +214,45 @@ export async function summarizeArticle(content: string, sourceUrl?: string): Pro
   }
 }
 
+// ─── Daily Memo Summary ───
+export async function generateDailyMemoSummary(memos: string[], dateLabel: string): Promise<string> {
+  if (memos.length === 0) {
+    return `📅 ${dateLabel}のまとめ\n\n今日はまだメモがありません。\n気づきを1つだけでも #メモ に残してみましょう。`;
+  }
+
+  try {
+    const result = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `${MAEDA_PERSONA_SHORT}
+
+ユーザーの今日のメモを「メモの魔力」式で要約してください（900文字以内）。
+フォーマット:
+📅 今日のまとめ
+■ 今日の気づき（3点以内）
+■ 抽象化（共通する本質）
+■ 明日の一手（具体的な行動3つ以内）
+■ 前田裕二のひとこと
+
+説教ではなく、ユーザーが明日すぐ動きたくなる言葉にしてください。`,
+        },
+        {
+          role: "user",
+          content: `日付: ${dateLabel}\nメモ件数: ${memos.length}\n\n${memos.map((memo, index) => `${index + 1}. ${memo}`).join("\n\n")}`,
+        },
+      ],
+    });
+    const text = result.choices[0]?.message?.content;
+    if (typeof text === "string") return text;
+    if (Array.isArray(text)) return text.map(c => ("text" in c ? c.text : "")).join("");
+    return "今日のまとめの生成に失敗しました。もう一度お試しください。";
+  } catch (e) {
+    console.error("[LLM] Daily memo summary error:", e);
+    return "今日のまとめの生成に失敗しました。しばらくしてからもう一度お試しください。";
+  }
+}
+
 // ─── Daily Memo Reminder ───
 export async function generateMemoReminder(): Promise<string> {
   try {

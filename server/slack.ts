@@ -2,7 +2,7 @@ import crypto from "crypto";
 import express, { type Express, type Request, type Response } from "express";
 import { createMemo, getMemos, saveMessage } from "./db";
 import { ENV } from "./_core/env";
-import { classifyAndReply, generateKotaeawase, summarizeArticle } from "./llm-handlers";
+import { classifyAndReply, generateDailyMemoSummary, generateKotaeawase, summarizeArticle } from "./llm-handlers";
 import { extractUrl, scrapeUrl } from "./scraper";
 
 type SlackEvent = {
@@ -36,6 +36,7 @@ const HELP_KEYWORDS = ["help", "ヘルプ", "使い方"];
 const HISTORY_KEYWORDS = ["history", "履歴", "メモ履歴"];
 const ANSWER_KEYWORDS = ["answer", "kotaeawase", "答え合わせ", "答合わせ"];
 const SUMMARY_KEYWORDS = ["summary", "要約"];
+const DAILY_SUMMARY_KEYWORDS = ["daily", "daily summary", "今日のまとめ", "今日まとめ", "日報", "振り返り"];
 const MEMO_KEYWORDS = ["memo", "メモ"];
 
 export function verifySlackSignature(
@@ -116,6 +117,14 @@ function truncateForSlack(text: string, maxLength = 2800): string {
   return `${text.slice(0, maxLength - 20)}\n\n...省略しました`;
 }
 
+function jstDateKey(date: Date): string {
+  return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+}
+
+function jstDateLabel(date: Date): string {
+  return date.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "long", day: "numeric", weekday: "short" });
+}
+
 function helpText(): string {
   return [
     "📖 メモの魔力 Slack Bot",
@@ -125,6 +134,7 @@ function helpText(): string {
     "・普通に送る: メモ保存 + 前田裕二的な考察",
     "・履歴 / history: 最近のメモを表示",
     "・答え合わせ / answer: 最新メモを分析",
+    "・今日のまとめ / 日報: 今日のメモを要約",
     "・要約 URL / summary URL: 記事や文章を要約",
     "・ヘルプ / help: この案内を表示",
   ].join("\n");
@@ -169,6 +179,21 @@ async function handleSummary(text: string): Promise<string> {
   return summarizeArticle(`タイトル: ${article.title}\n\n${article.content}`, article.url);
 }
 
+async function handleDailySummary(userKey: string): Promise<string> {
+  const today = new Date();
+  const todayKey = jstDateKey(today);
+  const todaysMemos = (await getMemos(userKey, 100))
+    .filter(memo => jstDateKey(new Date(memo.createdAt)) === todayKey)
+    .reverse();
+
+  const response = await generateDailyMemoSummary(
+    todaysMemos.map(memo => memo.factContent),
+    jstDateLabel(today)
+  );
+  await saveMessage({ lineUserId: userKey, direction: "outgoing", content: response, messageType: "daily_summary" });
+  return response;
+}
+
 async function handleMemo(userKey: string, text: string): Promise<string> {
   const explicitMemo = stripKeyword(text, MEMO_KEYWORDS);
   const memoText = explicitMemo === null ? text.trim() : explicitMemo.trim();
@@ -197,6 +222,7 @@ async function handleSlackText(teamId: string | undefined, userId: string, text:
   if (!cleanedText || matchesKeyword(cleanedText, HELP_KEYWORDS)) return helpText();
   if (matchesKeyword(cleanedText, HISTORY_KEYWORDS)) return handleHistory(userKey);
   if (matchesKeyword(cleanedText, ANSWER_KEYWORDS)) return handleAnswer(userKey);
+  if (matchesKeyword(cleanedText, DAILY_SUMMARY_KEYWORDS)) return handleDailySummary(userKey);
   if (matchesKeyword(cleanedText, SUMMARY_KEYWORDS)) return handleSummary(cleanedText);
 
   return handleMemo(userKey, cleanedText);
