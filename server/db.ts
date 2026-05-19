@@ -224,9 +224,10 @@ export async function updateContentStatus(id: number, status: "draft" | "approve
 export async function createMemo(memo: InsertMemo): Promise<Memo | null> {
   const db = await getDb();
   if (!db) return null;
-  await db.insert(memos).values(memo);
-  // Fetch the latest created memo
-  const created = await db.select().from(memos).orderBy(desc(memos.createdAt)).limit(1);
+  const inserted = await db.insert(memos).values(memo).$returningId();
+  const id = inserted[0]?.id;
+  if (id === undefined) return null;
+  const created = await db.select().from(memos).where(eq(memos.id, id)).limit(1);
   return created[0] || null;
 }
 
@@ -256,9 +257,10 @@ export async function updateMemoStatus(id: number, status: "draft" | "categorizi
 export async function saveCategorization(categorization: InsertCategorization): Promise<Categorization | null> {
   const db = await getDb();
   if (!db) return null;
-  await db.insert(categorizations).values(categorization);
-  // Fetch the latest created categorization
-  const created = await db.select().from(categorizations).orderBy(desc(categorizations.createdAt)).limit(1);
+  const inserted = await db.insert(categorizations).values(categorization).$returningId();
+  const id = inserted[0]?.id;
+  if (id === undefined) return null;
+  const created = await db.select().from(categorizations).where(eq(categorizations.id, id)).limit(1);
   return created[0] || null;
 }
 
@@ -279,9 +281,10 @@ export async function updateCategorization(id: number, updates: Partial<Categori
 export async function saveAnalysisResult(analysis: InsertAnalysisResult): Promise<AnalysisResult | null> {
   const db = await getDb();
   if (!db) return null;
-  await db.insert(analysisResults).values(analysis);
-  // Fetch the latest created analysis
-  const created = await db.select().from(analysisResults).orderBy(desc(analysisResults.createdAt)).limit(1);
+  const inserted = await db.insert(analysisResults).values(analysis).$returningId();
+  const id = inserted[0]?.id;
+  if (id === undefined) return null;
+  const created = await db.select().from(analysisResults).where(eq(analysisResults.id, id)).limit(1);
   return created[0] || null;
 }
 

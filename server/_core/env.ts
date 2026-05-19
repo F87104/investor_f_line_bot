@@ -10,4 +10,6 @@ export const ENV = {
   lineChannelSecret: process.env.LINE_CHANNEL_SECRET ?? "",
   lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN ?? "",
   lineChannelId: process.env.LINE_CHANNEL_ID ?? "",
+  slackBotToken: process.env.SLACK_BOT_TOKEN ?? "",
+  slackSigningSecret: process.env.SLACK_SIGNING_SECRET ?? "",
 };

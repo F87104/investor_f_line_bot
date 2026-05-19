@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerWebhookRoute } from "../webhook";
+import { registerSlackRoutes } from "../slack";
 import { initScheduler } from "../scheduler";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -32,10 +33,10 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // LINE Webhook endpoint MUST be registered BEFORE express.json() body parser
-  // because LINE signature verification requires the raw request body bytes.
-  // The webhook route uses its own express.raw() middleware.
+  // Webhook endpoints must be registered before body parsers because signature
+  // verification requires the exact raw request body bytes.
   registerWebhookRoute(app);
+  registerSlackRoutes(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
