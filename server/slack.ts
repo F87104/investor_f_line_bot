@@ -271,9 +271,9 @@ export function registerSlackRoutes(app: Express) {
     const event = body.event;
     if (!event || !shouldHandleSlackEvent(event)) return;
 
-    const channel = event.channel;
-    const user = event.user;
-    const text = event.text;
+    const channel = event.channel!;
+    const user = event.user!;
+    const text = event.text!;
     const threadTs =
       event.thread_ts ||
       (event.type === "app_mention" || event.channel === ENV.slackMemoChannelId ? event.ts : undefined);
