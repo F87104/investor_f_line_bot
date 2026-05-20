@@ -4,6 +4,7 @@ import { createMemo, getMemoById, getMemos, getMessagesByUser, saveMessage, upda
 import { ENV } from "./_core/env";
 import {
   classifyAndReply,
+  generateArticleDraftFromThread,
   generateDailyMemoSummary,
   generateKotaeawase,
   generateThreadConversationReply,
@@ -70,6 +71,7 @@ const HELP_KEYWORDS = ["help", "ヘルプ", "使い方"];
 const HISTORY_KEYWORDS = ["history", "履歴", "メモ履歴"];
 const ANSWER_KEYWORDS = ["answer", "kotaeawase", "答え合わせ", "答合わせ"];
 const SUMMARY_KEYWORDS = ["summary", "要約"];
+const ARTICLE_KEYWORDS = ["article", "記事化", "note化", "ブログ化", "下書き"];
 const DAILY_SUMMARY_KEYWORDS = ["daily", "daily summary", "今日のまとめ", "今日まとめ", "日報", "振り返り"];
 const MEMO_KEYWORDS = ["memo", "メモ"];
 const APPEND_PREFIXES = ["追記:", "追記：", "追加:", "追加：", "補足:", "補足："];
@@ -398,6 +400,7 @@ function helpText(): string {
     "・答え合わせ / answer: 最新メモを分析",
     "・今日のまとめ / 日報: 今日のメモを要約",
     "・今日のまとめ アイデア: 分類別に今日のメモを要約",
+    "・記事化 / article: 最新メモ、またはスレッドの元メモを記事下書きに変換",
     "・Bot返信のスレッドに返信: そのメモの続きとして会話",
     "・追記: xxx: スレッドの元メモに追記",
     "・別メモ: xxx: スレッド内でも新しいメモとして保存",
@@ -449,6 +452,17 @@ async function handleSummary(text: string): Promise<string> {
 
   const article = await scrapeUrl(url);
   return summarizeArticle(`タイトル: ${article.title}\n\n${article.content}`, article.url);
+}
+
+async function handleLatestArticleDraft(userKey: string): Promise<string> {
+  const [latest] = await getMemos(userKey, 1);
+  if (!latest) {
+    return "記事化するメモがまだありません。\nまず #メモ に普通に書くか、Bot返信のスレッドで「記事化」と送ってください。";
+  }
+
+  const response = await generateArticleDraftFromThread(latest.factContent, []);
+  await saveMessage({ lineUserId: userKey, direction: "outgoing", content: response, messageType: "analysis_result" });
+  return response;
 }
 
 async function handleDailySummary(userKey: string, text: string): Promise<string> {
@@ -539,6 +553,18 @@ async function handleThreadReply(userKey: string, cleanedText: string, context: 
     return response;
   }
 
+  if (matchesKeyword(cleanedText, ARTICLE_KEYWORDS)) {
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "user", cleanedText);
+    const conversation: ThreadConversationTurn[] = thread.turns.map(turn => ({
+      role: turn.role,
+      content: turn.text,
+    }));
+    const response = await generateArticleDraftFromThread(parentMemo, conversation);
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", response);
+    await saveMessage({ lineUserId: userKey, direction: "outgoing", content: response, messageType: "analysis_result" });
+    return response;
+  }
+
   if (!intent.text) return "このメモの続きとして、聞きたいことを送ってください。";
 
   const conversation: ThreadConversationTurn[] = thread.turns.map(turn => ({
@@ -555,6 +581,7 @@ async function handleRootSlackText(userKey: string, cleanedText: string, context
   if (!cleanedText || matchesKeyword(cleanedText, HELP_KEYWORDS)) return helpText();
   if (matchesKeyword(cleanedText, HISTORY_KEYWORDS)) return handleHistory(userKey, cleanedText);
   if (matchesKeyword(cleanedText, ANSWER_KEYWORDS)) return handleAnswer(userKey);
+  if (matchesKeyword(cleanedText, ARTICLE_KEYWORDS)) return handleLatestArticleDraft(userKey);
   if (matchesKeyword(cleanedText, DAILY_SUMMARY_KEYWORDS)) return handleDailySummary(userKey, cleanedText);
   if (matchesKeyword(cleanedText, SUMMARY_KEYWORDS)) return handleSummary(cleanedText);
 

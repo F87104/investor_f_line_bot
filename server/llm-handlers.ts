@@ -253,6 +253,52 @@ Slackのスレッド内で、元メモについて会話を続けます。
   }
 }
 
+// ─── Thread to article draft ───
+export async function generateArticleDraftFromThread(
+  parentMemo: string,
+  conversation: ThreadConversationTurn[]
+): Promise<string> {
+  try {
+    const recentConversation = conversation.slice(-12);
+    const result = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `${MEMO_EDITOR_PERSONA}
+${DEEP_MEMO_RESPONSE_RULES}
+
+Slackスレッドの元メモと会話履歴を材料に、noteやブログに貼れる記事下書きを作ってください。
+条件:
+- タイトルを1つ付ける。
+- 冒頭で読者の錯覚や違和感を提示する。
+- 元メモの核心を、構造・具体例・転用に展開する。
+- 会話履歴の中で出た問いや補足を自然に織り込む。
+- 最後に「読者への問い」を3つ置く。
+- Slackで扱いやすいよう、1800〜2600文字程度。Markdown見出しを使ってよい。
+- 元メモにない固有名詞や事実は勝手に足さない。`,
+        },
+        {
+          role: "user",
+          content: [
+            `元メモ:\n${parentMemo}`,
+            recentConversation.length > 0
+              ? `スレッド会話:\n${recentConversation.map(turn => `${turn.role === "user" ? "ユーザー" : "Bot"}: ${turn.content}`).join("\n\n")}`
+              : "スレッド会話: なし",
+          ].join("\n\n---\n\n"),
+        },
+      ],
+    });
+
+    const text = result.choices[0]?.message?.content;
+    if (typeof text === "string") return text;
+    if (Array.isArray(text)) return text.map(c => ("text" in c ? c.text : "")).join("");
+    return "記事化に失敗しました。もう少しメモやスレッド会話を増やしてから試してください。";
+  } catch (e) {
+    console.error("[LLM] Article draft generation error:", e);
+    return "記事化に失敗しました。しばらくしてからもう一度お試しください。";
+  }
+}
+
 // ─── Article Summary (前田裕二スタイルで記事要約) ───
 export async function summarizeArticle(content: string, sourceUrl?: string): Promise<string> {
   try {
