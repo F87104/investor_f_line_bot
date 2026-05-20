@@ -42,9 +42,9 @@ ${SIMPLE_MEMO_RESPONSE_RULES}
    - learning: 学び、読書、講座、知識、気づき
    - task: やること、確認、連絡、期限、具体的な作業
    - general: 上記に当てはまらないメモ
-2. reply: 語彙に奥行きのある深掘り考察（核心の特定→身近な比喩→小さな行動/問い）
+2. reply: 語彙に奥行きのある深掘り考察（核心の特定→短く刺さる表現→小さな行動/問い）
 
-replyは500〜900文字を目安に、深さは残しつつ、借り物ではない言葉で読みやすくしてください。`,
+replyは450〜750文字を目安に、深さは残しつつ、借り物ではない言葉で読みやすくしてください。`,
         },
         { role: "user", content: text },
       ],
@@ -62,7 +62,7 @@ replyは500〜900文字を目安に、深さは残しつつ、借り物ではな
               },
               reply: {
                 type: "string",
-                description: "語彙に奥行きのある深掘り考察（500〜900文字）",
+                description: "語彙に奥行きのある深掘り考察（450〜750文字）",
               },
             },
             required: ["category", "reply"],
@@ -74,12 +74,12 @@ replyは500〜900文字を目安に、深さは残しつつ、借り物ではな
     const content = result.choices[0]?.message?.content;
     if (typeof content === "string") {
       const parsed = JSON.parse(content);
-      return { category: parsed.category || "general", reply: parsed.reply || "メモを受け取りました！" };
+      return { category: parsed.category || "general", reply: parsed.reply || "保存しました。" };
     }
-    return { category: "general", reply: "メモを受け取りました！考えをまとめています..." };
+    return { category: "general", reply: "保存しました。" };
   } catch (e) {
     console.error("[LLM] classifyAndReply error:", e);
-    return { category: "general", reply: "メモを受け取りました！少し考えさせてください。" };
+    return { category: "general", reply: "保存しました。深掘りの生成に失敗しました。" };
   }
 }
 
@@ -177,7 +177,7 @@ ${DEEP_MEMO_RESPONSE_RULES}
 
 ユーザーのメモに対し、仕分けワークのヒントを出してください（800文字以内）。
 フォーマット:
-📝 メモを受け取りました！
+📝 メモ
 「{メモ内容}」
 🔍 抽象化ヒント: （なぜ？を考えるきっかけ）
 💡 具体化ヒント: （別の場面を考えるきっかけ）
@@ -190,10 +190,10 @@ ${DEEP_MEMO_RESPONSE_RULES}
     const content = result.choices[0]?.message?.content;
     if (typeof content === "string") return content;
     if (Array.isArray(content)) return content.map(c => ("text" in c ? c.text : "")).join("");
-    return "メモを受け取りました！仕分けワークを始めましょう。";
+    return "仕分けワークを始めましょう。";
   } catch (e) {
     console.error("[LLM] Shiwake guide error:", e);
-    return "メモを受け取りました！\n🔍 抽象化: 「なぜ？」を考えてみてください\n💡 具体化: 同じ法則が当てはまる別の場面は？\n🚀 転用: この気づきをどう活かせますか？";
+    return "🔍 抽象化: 「なぜ？」を考えてみてください\n💡 具体化: 同じ法則が当てはまる別の場面は？\n🚀 転用: この気づきをどう活かせますか？";
   }
 }
 
@@ -221,6 +221,14 @@ export type ThreadConversationTurn = {
   content: string;
 };
 
+export type CopyReadySections = {
+  title: string;
+  keySentence: string;
+  shortMemo: string;
+  xPost: string;
+  nextAction: string;
+};
+
 // ─── Slack thread continuation ───
 export async function generateThreadConversationReply(
   parentMemo: string,
@@ -239,7 +247,7 @@ ${SIMPLE_MEMO_RESPONSE_RULES}
 Slackのスレッド内で、元メモについて会話を続けます。
 必ず「元メモ」の文脈を踏まえ、ユーザーの追加質問に答えてください。
 新規メモとして扱わず、前の話から自然につながる返答にしてください。
-ファクト→抽象化→転用の流れは保ちつつ、Slackで読みやすいよう500〜900文字で返してください。
+ファクト→抽象化→転用の流れは保ちつつ、Slackで読みやすいよう450〜750文字で返してください。
 相手の追加返信に対して、ありきたりな説明で返さず、そのスレッドだけの言葉や比喩を1つ足してください。`,
         },
         {
@@ -258,11 +266,242 @@ Slackのスレッド内で、元メモについて会話を続けます。
     const text = result.choices[0]?.message?.content;
     if (typeof text === "string") return text;
     if (Array.isArray(text)) return text.map(c => ("text" in c ? c.text : "")).join("");
-    return "このメモの続きとして受け取りました。もう少し具体的に聞いてください。";
+    return "もう少し具体的に聞いてください。";
   } catch (e) {
     console.error("[LLM] Slack thread continuation error:", e);
-    return "このメモの続きとして受け取りました。少し考えを整理して、もう一度返します。";
+    return "うまく返答を作れませんでした。もう一度送ってください。";
   }
+}
+
+// ─── Thread to short copy-ready sections ───
+export async function generateCopyReadySectionsFromThread(
+  parentMemo: string,
+  conversation: ThreadConversationTurn[]
+): Promise<CopyReadySections> {
+  try {
+    const recentConversation = conversation.slice(-10);
+    const result = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `${MEMO_EDITOR_PERSONA}
+${SIMPLE_MEMO_RESPONSE_RULES}
+
+Slackのスレッドを、コピーしやすい短い部品に分けてください。
+条件:
+- それぞれ単独でコピーして使える文章にする。
+- title: 16文字以内。
+- keySentence: 60文字以内。核心を1文で。
+- shortMemo: 160〜260文字。本文に貼りやすい短いまとめ。
+- xPost: 必ず「＼タイトル／」から始め、本文は180〜240文字。
+- nextAction: 50文字以内。今日できる行動を1つ。
+- 「静かに」「余白」「余韻」は使わない。
+- 元メモにない事実や固有名詞は足さない。`,
+        },
+        {
+          role: "user",
+          content: [
+            `元メモ:\n${parentMemo}`,
+            recentConversation.length > 0
+              ? `スレッド会話:\n${recentConversation.map(turn => `${turn.role === "user" ? "ユーザー" : "Bot"}: ${turn.content}`).join("\n\n")}`
+              : "スレッド会話: なし",
+          ].join("\n\n---\n\n"),
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "copy_ready_sections",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              keySentence: { type: "string" },
+              shortMemo: { type: "string" },
+              xPost: { type: "string" },
+              nextAction: { type: "string" },
+            },
+            required: ["title", "keySentence", "shortMemo", "xPost", "nextAction"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    const content = result.choices[0]?.message?.content;
+    if (typeof content === "string") {
+      const parsed = JSON.parse(content);
+      return {
+        title: parsed.title || "メモの核心",
+        keySentence: parsed.keySentence || "このメモの核心を一文にできませんでした。",
+        shortMemo: parsed.shortMemo || parentMemo.slice(0, 220),
+        xPost: parsed.xPost || `＼メモの核心／\n${parentMemo.slice(0, 180)}`,
+        nextAction: parsed.nextAction || "このメモから、今日試すことを1つ選ぶ。",
+      };
+    }
+  } catch (e) {
+    console.error("[LLM] Copy-ready section generation error:", e);
+  }
+
+  return {
+    title: "メモの核心",
+    keySentence: parentMemo.slice(0, 60),
+    shortMemo: parentMemo.slice(0, 260),
+    xPost: `＼メモの核心／\n${parentMemo.slice(0, 200)}`,
+    nextAction: "このメモから、今日試すことを1つ選ぶ。",
+  };
+}
+
+// ─── Thread to phrase extracts ───
+export async function generatePhraseExtractsFromThread(
+  parentMemo: string,
+  conversation: ThreadConversationTurn[]
+): Promise<string[]> {
+  try {
+    const recentConversation = conversation.slice(-12);
+    const result = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `${MEMO_EDITOR_PERSONA}
+${SIMPLE_MEMO_RESPONSE_RULES}
+
+Slackスレッドから、単独で残したくなる「単語・短い表現」だけを抜き出してください。
+条件:
+- 5〜8個。
+- 1つ8〜35文字くらい。長い文章にしない。
+- そのまま見出し、タイトル、別メモの種、X投稿の核にできる表現にする。
+- 意味がすぐ分かり、短く刺さる言葉にする。
+- 「便利さを買わない代わりに自分を使っている」のように、少し長くても1つの表現として強ければ残してよい。
+- 「静かに」「余白」「余韻」は使わない。
+- 特定の人物の文体や口癖は真似しない。
+- 元メモや会話にない事実や固有名詞は足さない。`,
+        },
+        {
+          role: "user",
+          content: [
+            `元メモ:\n${parentMemo}`,
+            recentConversation.length > 0
+              ? `スレッド会話:\n${recentConversation.map(turn => `${turn.role === "user" ? "ユーザー" : "Bot"}: ${turn.content}`).join("\n\n")}`
+              : "スレッド会話: なし",
+          ].join("\n\n---\n\n"),
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "phrase_extracts",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              phrases: {
+                type: "array",
+                items: { type: "string" },
+              },
+            },
+            required: ["phrases"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    const content = result.choices[0]?.message?.content;
+    if (typeof content === "string") {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed.phrases)) {
+        return parsed.phrases
+          .filter((phrase: unknown): phrase is string => typeof phrase === "string" && phrase.trim().length > 0)
+          .map((phrase: string) => phrase.trim())
+          .slice(0, 8);
+      }
+    }
+  } catch (e) {
+    console.error("[LLM] Phrase extract generation error:", e);
+  }
+
+  return [
+    "自分を使う節約",
+    "体力払い",
+    "安く済ませたつもりの高い買い物",
+    "便利さを買わない代わりに自分を使っている",
+    "払わなかったお金を体力で払っている",
+  ];
+}
+
+// ─── Thread to important summary root post ───
+export async function generateImportantThreadSummary(
+  parentMemo: string,
+  conversation: ThreadConversationTurn[]
+): Promise<string> {
+  try {
+    const recentConversation = conversation.slice(-12);
+    const result = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `${MEMO_EDITOR_PERSONA}
+${SIMPLE_MEMO_RESPONSE_RULES}
+
+Slackの元スレッドから、大事な部分だけを別スレッドの親投稿としてまとめてください。
+条件:
+- 700〜1100文字。
+- 重要な言葉、使える考え、次に試すことを分ける。
+- 長い解説にしない。あとで見返してすぐ使える形にする。
+- 「静かに」「余白」「余韻」は使わない。
+- 元メモや会話にない事実や固有名詞は足さない。
+
+フォーマット:
+📌 重要まとめ
+
+【タイトル】
+...
+
+【大事な一文】
+...
+
+【使える形】
+...
+
+【次に試すこと】
+...`,
+        },
+        {
+          role: "user",
+          content: [
+            `元メモ:\n${parentMemo}`,
+            recentConversation.length > 0
+              ? `スレッド会話:\n${recentConversation.map(turn => `${turn.role === "user" ? "ユーザー" : "Bot"}: ${turn.content}`).join("\n\n")}`
+              : "スレッド会話: なし",
+          ].join("\n\n---\n\n"),
+        },
+      ],
+    });
+
+    const text = result.choices[0]?.message?.content;
+    if (typeof text === "string") return text;
+    if (Array.isArray(text)) return text.map(c => ("text" in c ? c.text : "")).join("");
+  } catch (e) {
+    console.error("[LLM] Important thread summary generation error:", e);
+  }
+
+  return [
+    "📌 重要まとめ",
+    "",
+    "【タイトル】",
+    "メモの核心",
+    "",
+    "【大事な一文】",
+    parentMemo.slice(0, 140),
+    "",
+    "【使える形】",
+    "このメモから、あとで使える考えを抜き出してください。",
+    "",
+    "【次に試すこと】",
+    "このメモから、今日試すことを1つ選ぶ。",
+  ].join("\n");
 }
 
 // ─── Thread to article draft ───

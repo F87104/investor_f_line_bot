@@ -5,11 +5,15 @@ import { ENV } from "./_core/env";
 import {
   classifyAndReply,
   generateArticleDraftFromThread,
+  generateCopyReadySectionsFromThread,
   generateDailyMemoSummary,
+  generateImportantThreadSummary,
   generateKotaeawase,
+  generatePhraseExtractsFromThread,
   generateThreadConversationReply,
   generateXPostDraftFromThread,
   summarizeArticle,
+  type CopyReadySections,
   type ThreadConversationTurn,
 } from "./llm-handlers";
 import { extractUrl, scrapeUrl } from "./scraper";
@@ -66,7 +70,15 @@ type SlackThreadTurnRecord = {
   createdAt: string;
 };
 
-type SlackThreadRecord = SlackThreadContextRecord | SlackThreadTurnRecord;
+type SlackPhraseCandidateRecord = {
+  type: "slack_phrase_candidates";
+  channelId: string;
+  threadTs: string;
+  phrases: string[];
+  createdAt: string;
+};
+
+type SlackThreadRecord = SlackThreadContextRecord | SlackThreadTurnRecord | SlackPhraseCandidateRecord;
 
 const HELP_KEYWORDS = ["help", "ヘルプ", "使い方"];
 const HISTORY_KEYWORDS = ["history", "履歴", "メモ履歴"];
@@ -74,6 +86,9 @@ const ANSWER_KEYWORDS = ["answer", "kotaeawase", "答え合わせ", "答合わ�
 const SUMMARY_KEYWORDS = ["summary", "要約"];
 const ARTICLE_KEYWORDS = ["article", "記事化", "note化", "ブログ化", "下書き"];
 const X_POST_KEYWORDS = ["x", "x化", "post", "ポスト化", "投稿化", "ツイート化", "x投稿"];
+const COPY_KEYWORDS = ["copy", "コピー", "コピー用", "コピペ", "コピペ用"];
+const PHRASE_KEYWORDS = ["言葉", "ことば", "表現", "フレーズ", "刺さる言葉"];
+const IMPORTANT_SUMMARY_KEYWORDS = ["重要", "重要まとめ", "要点まとめ", "抜粋まとめ", "別スレッド", "まとめる"];
 const DAILY_SUMMARY_KEYWORDS = ["daily", "daily summary", "今日のまとめ", "今日まとめ", "日報", "振り返り"];
 const MEMO_KEYWORDS = ["memo", "メモ"];
 const APPEND_PREFIXES = ["追記:", "追記：", "追加:", "追加：", "補足:", "補足："];
@@ -279,6 +294,17 @@ function parseThreadRecord(content: string): SlackThreadRecord | null {
     ) {
       return parsed as SlackThreadTurnRecord;
     }
+    if (
+      parsed?.type === "slack_phrase_candidates" &&
+      typeof parsed.channelId === "string" &&
+      typeof parsed.threadTs === "string" &&
+      Array.isArray(parsed.phrases)
+    ) {
+      return {
+        ...parsed,
+        phrases: parsed.phrases.filter((phrase): phrase is string => typeof phrase === "string"),
+      } as SlackPhraseCandidateRecord;
+    }
   } catch {
     return null;
   }
@@ -333,6 +359,27 @@ async function saveThreadTurn(
   });
 }
 
+async function savePhraseCandidates(
+  userKey: string,
+  channelId: string,
+  threadTs: string,
+  phrases: string[]
+) {
+  const record: SlackPhraseCandidateRecord = {
+    type: "slack_phrase_candidates",
+    channelId,
+    threadTs,
+    phrases,
+    createdAt: new Date().toISOString(),
+  };
+  await saveMessage({
+    lineUserId: userKey,
+    direction: "outgoing",
+    content: serializeThreadRecord(record),
+    messageType: "workflow_step",
+  });
+}
+
 async function getThreadContext(userKey: string, channelId: string, threadTs: string) {
   const records = (await getMessagesByUser(userKey, 400))
     .map(message => parseThreadRecord(message.content))
@@ -347,7 +394,11 @@ async function getThreadContext(userKey: string, channelId: string, threadTs: st
     .filter((record): record is SlackThreadTurnRecord => record.type === "slack_thread_turn")
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-  return { context, turns };
+  const phraseCandidates = records
+    .filter((record): record is SlackPhraseCandidateRecord => record.type === "slack_phrase_candidates")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.phrases ?? [];
+
+  return { context, turns, phraseCandidates };
 }
 
 export function shouldHandleSlackEvent(event: SlackEvent, memoChannelId = ENV.slackMemoChannelId): boolean {
@@ -382,6 +433,35 @@ function truncateForSlack(text: string, maxLength = 2800): string {
   return `${text.slice(0, maxLength - 20)}\n\n...省略しました`;
 }
 
+function formatCopyReadyMessages(sections: CopyReadySections): string[] {
+  return [
+    `【タイトル】\n${sections.title}`,
+    `【大事な一文】\n${sections.keySentence}`,
+    `【短い本文】\n${sections.shortMemo}`,
+    `【X投稿】\n${sections.xPost}`,
+    `【次にやること】\n${sections.nextAction}`,
+  ];
+}
+
+function formatPhraseCandidates(phrases: string[]): string {
+  return [
+    "使えそうな言葉を抜き出しました。",
+    "深掘りしたいものがあれば、このスレッドで「言葉1」のように送ってください。",
+    "",
+    ...phrases.map((phrase, index) => `${index + 1}. ${phrase}`),
+  ].join("\n");
+}
+
+export function parsePhraseSelection(text: string): number | null {
+  const normalized = text.trim().toLowerCase();
+  const match = normalized.match(/^(?:言葉|ことば|表現|フレーズ)\s*([1-8１-８])$/);
+  if (!match) return null;
+
+  const digit = match[1].replace(/[１-８]/g, char => String(char.charCodeAt(0) - "１".charCodeAt(0) + 1));
+  const index = Number(digit) - 1;
+  return Number.isInteger(index) && index >= 0 && index < 8 ? index : null;
+}
+
 function jstDateKey(date: Date): string {
   return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 }
@@ -404,6 +484,10 @@ function helpText(): string {
     "・今日のまとめ アイデア: 分類別に今日のメモを要約",
     "・記事化 / article: 最新メモ、またはスレッドの元メモを記事下書きに変換",
     "・X化 / ポスト化: 最新メモ、またはスレッドの元メモをX投稿文に変換",
+    "・コピー用: スレッド内容を短く分けてコピーしやすくする",
+    "・言葉: スレッドから刺さる表現だけ抜き出す",
+    "・言葉1: 抜き出した1番の言葉を新しい親投稿にする",
+    "・重要: スレッド内容を #メモ に新しい重要まとめとして作る",
     "・Bot返信のスレッドに返信: そのメモの続きとして会話",
     "・追記: xxx: スレッドの元メモに追記",
     "・別メモ: xxx: スレッド内でも新しいメモとして保存",
@@ -517,7 +601,7 @@ async function handleMemo(userKey: string, text: string, context?: SlackHandling
     await saveThreadContext(userKey, context.channelId, context.threadTs, createdMemo.id, memoText, folderId);
   }
 
-  const response = `📝 メモを保存しました [${memoFolderTag(folderId)}]\n\n${llmResult.reply}\n\n---\n「履歴 ${getMemoFolder(folderId).label}」で分類別に見られます。\n「答え合わせ」で最新メモを深掘りできます。`;
+  const response = `📝 [${memoFolderTag(folderId)}]\n\n${llmResult.reply}\n\n---\n「履歴 ${getMemoFolder(folderId).label}」で分類別に見られます。\n「答え合わせ」で最新メモを深掘りできます。`;
   await saveMessage({ lineUserId: userKey, direction: "outgoing", content: response, messageType: "analysis_result" });
   return response;
 }
@@ -591,6 +675,95 @@ async function handleThreadReply(userKey: string, cleanedText: string, context: 
     return response;
   }
 
+  const selectedPhraseIndex = parsePhraseSelection(cleanedText);
+  if (selectedPhraseIndex !== null) {
+    const phrase = thread.phraseCandidates[selectedPhraseIndex];
+    if (!phrase) {
+      return "その番号の言葉が見つかりませんでした。先にこのスレッドで「言葉」と送ってください。";
+    }
+
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "user", cleanedText);
+    const phraseMemo = [
+      "📌 言葉メモ",
+      "",
+      phrase,
+      "",
+      "この言葉をここから深掘りできます。",
+    ].join("\n");
+    const createdMemo = await createMemo({ lineUserId: userKey, factContent: phraseMemo }).catch(error => {
+      console.error("[Slack] Failed to save phrase memo:", error);
+      return null;
+    });
+    await saveMessage({ lineUserId: userKey, direction: "outgoing", content: phraseMemo, messageType: "analysis_result" });
+
+    const rootTs = await postSlackMessage(context.channelId, phraseMemo);
+    if (createdMemo?.id && rootTs) {
+      await saveThreadContext(userKey, context.channelId, rootTs, createdMemo.id, phraseMemo, thread.context.folderId);
+    }
+
+    const ack = rootTs
+      ? `「${phrase}」を新しい投稿にしました。`
+      : "言葉メモを作りましたが、Slackへの投稿に失敗しました。少ししてからもう一度試してください。";
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", ack);
+    return ack;
+  }
+
+  if (matchesKeyword(cleanedText, PHRASE_KEYWORDS)) {
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "user", cleanedText);
+    const conversation: ThreadConversationTurn[] = thread.turns.map(turn => ({
+      role: turn.role,
+      content: turn.text,
+    }));
+    const phrases = await generatePhraseExtractsFromThread(parentMemo, conversation);
+    await savePhraseCandidates(userKey, context.channelId, context.threadTs, phrases);
+
+    const response = formatPhraseCandidates(phrases);
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", response);
+    return response;
+  }
+
+  if (matchesKeyword(cleanedText, COPY_KEYWORDS)) {
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "user", cleanedText);
+    const conversation: ThreadConversationTurn[] = thread.turns.map(turn => ({
+      role: turn.role,
+      content: turn.text,
+    }));
+    const sections = await generateCopyReadySectionsFromThread(parentMemo, conversation);
+    const messages = formatCopyReadyMessages(sections);
+    for (const message of messages) {
+      await postSlackMessage(context.channelId, message, context.threadTs);
+    }
+
+    const response = "コピー用を短く分けて出しました。必要な部分だけコピーできます。";
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", `コピー用:\n${messages.join("\n\n")}\n\n${response}`);
+    return response;
+  }
+
+  if (matchesKeyword(cleanedText, IMPORTANT_SUMMARY_KEYWORDS)) {
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "user", cleanedText);
+    const conversation: ThreadConversationTurn[] = thread.turns.map(turn => ({
+      role: turn.role,
+      content: turn.text,
+    }));
+    const response = await generateImportantThreadSummary(parentMemo, conversation);
+    const createdMemo = await createMemo({ lineUserId: userKey, factContent: response }).catch(error => {
+      console.error("[Slack] Failed to save important summary:", error);
+      return null;
+    });
+    await saveMessage({ lineUserId: userKey, direction: "outgoing", content: response, messageType: "analysis_result" });
+
+    const rootTs = await postSlackMessage(context.channelId, response);
+    if (createdMemo?.id && rootTs) {
+      await saveThreadContext(userKey, context.channelId, rootTs, createdMemo.id, response, thread.context.folderId);
+    }
+
+    const ack = rootTs
+      ? "重要まとめを #メモ に新しい投稿として作りました。そこから別スレッドで育てられます。"
+      : "重要まとめを作りましたが、Slackへの投稿に失敗しました。少ししてからもう一度試してください。";
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", ack);
+    return ack;
+  }
+
   if (!intent.text) return "このメモの続きとして、聞きたいことを送ってください。";
 
   const conversation: ThreadConversationTurn[] = thread.turns.map(turn => ({
@@ -636,7 +809,7 @@ async function handleSlackText(teamId: string | undefined, userId: string, text:
 async function postSlackMessage(channel: string, text: string, threadTs?: string) {
   if (!ENV.slackBotToken) {
     console.warn("[Slack] SLACK_BOT_TOKEN is not configured");
-    return;
+    return undefined;
   }
 
   const response = await fetch("https://slack.com/api/chat.postMessage", {
@@ -652,10 +825,12 @@ async function postSlackMessage(channel: string, text: string, threadTs?: string
     }),
   });
 
-  const result = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+  const result = await response.json().catch(() => null) as { ok?: boolean; error?: string; ts?: string } | null;
   if (!response.ok || !result?.ok) {
     console.error("[Slack] chat.postMessage failed:", result?.error || response.statusText);
+    return undefined;
   }
+  return result.ts;
 }
 
 async function respondToCommand(responseUrl: string, text: string) {
@@ -739,7 +914,7 @@ export function registerSlackRoutes(app: Express) {
 
     res.status(200).json({
       response_type: "ephemeral",
-      text: "受け付けました。少し待ってください。",
+      text: "処理中です。",
     });
 
     void handleSlackCommand(command)

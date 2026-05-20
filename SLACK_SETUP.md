@@ -72,6 +72,10 @@ In Slack, write in the configured memo channel, mention the bot, DM it, or use t
 今日のまとめ アイデア
 記事化
 X化
+コピー用
+言葉
+言葉1
+重要
 @bot 朝の会議で質問が少ないほど理解度が低いと感じた
 /memo-magic 履歴
 /memo-magic 答え合わせ
@@ -87,4 +91,12 @@ Thread replies to the bot's memo response keep the original memo context:
 答え合わせ
 記事化
 X化
+コピー用
+言葉
+言葉1
+重要
 ```
+
+`コピー用` splits a thread into short copy-ready blocks.
+`言葉` extracts short phrases from the thread. Send `言葉1` to turn the first phrase into a new parent post for deeper discussion.
+`重要` creates a new `#メモ` parent post with the important points from the current thread.

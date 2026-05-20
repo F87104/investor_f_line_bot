@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { describe, expect, it } from "vitest";
-import { classifyMemoFolder, parseThreadReplyIntent, shouldHandleSlackEvent, verifySlackSignature } from "./slack";
+import { classifyMemoFolder, parsePhraseSelection, parseThreadReplyIntent, shouldHandleSlackEvent, verifySlackSignature } from "./slack";
 
 function sign(secret: string, timestamp: string, rawBody: string) {
   const base = `v0:${timestamp}:${rawBody}`;
@@ -120,5 +120,19 @@ describe("Slack thread reply intent", () => {
       mode: "new_memo",
       text: "明日は決算資料を確認する",
     });
+  });
+});
+
+describe("Slack phrase selection", () => {
+  it("detects phrase candidate numbers", () => {
+    expect(parsePhraseSelection("言葉1")).toBe(0);
+    expect(parsePhraseSelection("言葉 2")).toBe(1);
+    expect(parsePhraseSelection("表現３")).toBe(2);
+    expect(parsePhraseSelection("フレーズ8")).toBe(7);
+  });
+
+  it("ignores normal phrase extraction requests", () => {
+    expect(parsePhraseSelection("言葉")).toBe(null);
+    expect(parsePhraseSelection("言葉をもっと")).toBe(null);
   });
 });
