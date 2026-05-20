@@ -153,3 +153,10 @@
 - [x] SLACK_MEMO_CHANNEL_ID環境変数追加（C0B48FG18PM）
 - [x] テスト54件全パス
 - [x] チェックポイント保存・再デプロイ
+
+## Phase 20: カテゴリ別メモ分類・取り出し機能
+- [x] GitHubから最新コードpull（カテゴリ分類・フィルタ機能追加）
+- [x] TypeScriptエラー0件
+- [x] テスト57件全パス
+- [x] /api/slack/health がJSON応答確認
+- [x] チェックポイント保存・再デプロイ
