@@ -299,6 +299,55 @@ Slackスレッドの元メモと会話履歴を材料に、noteやブログに�
   }
 }
 
+// ─── Thread to X post draft ───
+export async function generateXPostDraftFromThread(
+  parentMemo: string,
+  conversation: ThreadConversationTurn[]
+): Promise<string> {
+  try {
+    const recentConversation = conversation.slice(-8);
+    const result = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `${MEMO_EDITOR_PERSONA}
+${DEEP_MEMO_RESPONSE_RULES}
+
+Slackスレッドの元メモと会話履歴を材料に、Xで発信できる短い投稿文を1つ作ってください。
+条件:
+- 必ず以下の形式で返す。
+＼タイトル／
+本文
+
+- タイトルは18文字以内。強いが煽りすぎない。
+- 本文は180〜260文字程度。
+- 本文では、元メモの核心を「読者が自分ごと化できる気づき」に変換する。
+- ただの要約ではなく、錯覚・構造・機会損失のどれかを1つ入れる。
+- ハッシュタグ、絵文字、箇条書き、Markdown、引用符、余計な説明は使わない。
+- 元メモにない固有名詞や事実は勝手に足さない。`,
+        },
+        {
+          role: "user",
+          content: [
+            `元メモ:\n${parentMemo}`,
+            recentConversation.length > 0
+              ? `スレッド会話:\n${recentConversation.map(turn => `${turn.role === "user" ? "ユーザー" : "Bot"}: ${turn.content}`).join("\n\n")}`
+              : "スレッド会話: なし",
+          ].join("\n\n---\n\n"),
+        },
+      ],
+    });
+
+    const text = result.choices[0]?.message?.content;
+    if (typeof text === "string") return text;
+    if (Array.isArray(text)) return text.map(c => ("text" in c ? c.text : "")).join("");
+    return "X投稿化に失敗しました。もう少しメモやスレッド会話を増やしてから試してください。";
+  } catch (e) {
+    console.error("[LLM] X post draft generation error:", e);
+    return "X投稿化に失敗しました。しばらくしてからもう一度お試しください。";
+  }
+}
+
 // ─── Article Summary (前田裕二スタイルで記事要約) ───
 export async function summarizeArticle(content: string, sourceUrl?: string): Promise<string> {
   try {
@@ -399,7 +448,7 @@ export async function generateMemoReminder(): Promise<string> {
 
 // Legacy exports
 export async function generateXPost(_topic: string): Promise<string> {
-  return "この機能は現在利用できません。メモを送ってください！";
+  return generateXPostDraftFromThread(_topic, []);
 }
 export async function generateInfographicStructure(_topic: string): Promise<string> {
   return "この機能は現在利用できません。メモを送ってください！";
