@@ -7,11 +7,20 @@ const MEMO_EDITOR_PERSONA = `あなたは「メモの魔力」式の思考編集
 
 const DEEP_MEMO_RESPONSE_RULES = `返答ルール:
 - 冒頭で、メモの核心や「最大の錯覚」「本当の論点」を1つ特定する。
-- 固定費/変動費、限界費用、認知負荷、再現性、エラー率、機会費用、モニタリングコストなど、適切な概念を1つ以上使って構造化する。
+- 構造は深く見るが、専門用語を連発しない。難しい概念は、できるだけ日常の言葉に置き換える。
 - 日常・仕事・投資・学習の具体例へ展開し、単なる感想ではなく「なぜそうなるのか」を説明する。
 - 最後に、ユーザー自身が考えるための問い、または次の実験を2〜3個出す。
 - 断定しすぎず、元メモにない事実や固有名詞は勝手に作らない。
 - 絵文字や見出しを乱発せず、読み物として自然な段落で書く。`;
+
+const SIMPLE_MEMO_RESPONSE_RULES = `#メモへの返答ルール:
+- 専門用語は原則使わない。難しい概念は、日常の言葉に言い換える。
+- 例: 「固定費/変動費」ではなく「最初に払うお金/毎回かかる手間」。「限界費用」ではなく「1回増えるたびにかかる手間」。「認知負荷」ではなく「頭の疲れ」。
+- 「最大の錯覚」「本当の論点」は探すが、説明はやさしくする。
+- 1文を短くする。長い理屈を重ねず、3〜5段落で読みやすくする。
+- たとえ話は、家事・買い物・仕事・移動など身近な例を使う。
+- 最後は、今日できる小さな行動か、考える問いを1〜2個だけ出す。
+- 読者を置いていく言葉、評論家っぽい言葉、会計や経済の専門語の連発を避ける。`;
 
 // ─── 統合版: 分類＋応答を1回のLLM呼び出しで実行 ───
 export async function classifyAndReply(text: string): Promise<{ category: string; reply: string }> {
@@ -21,7 +30,7 @@ export async function classifyAndReply(text: string): Promise<{ category: string
         {
           role: "system",
           content: `${MEMO_EDITOR_PERSONA}
-${DEEP_MEMO_RESPONSE_RULES}
+${SIMPLE_MEMO_RESPONSE_RULES}
 
 ユーザーのメモを受け取り、以下をJSON形式で返してください:
 1. category: メモの分類（investment/thought/idea/learning/task/general）
@@ -31,9 +40,9 @@ ${DEEP_MEMO_RESPONSE_RULES}
    - learning: 学び、読書、講座、知識、気づき
    - task: やること、確認、連絡、期限、具体的な作業
    - general: 上記に当てはまらないメモ
-2. reply: 深掘り考察（核心の特定→構造化→具体例→転用→問い）
+2. reply: やさしい深掘り考察（核心の特定→身近な例→小さな行動/問い）
 
-replyは900〜1300文字を目安に、短いメモでも浅く処理しないでください。`,
+replyは500〜800文字を目安に、深さは残しつつ読みやすくしてください。`,
         },
         { role: "user", content: text },
       ],
@@ -51,7 +60,7 @@ replyは900〜1300文字を目安に、短いメモでも浅く処理しない�
               },
               reply: {
                 type: "string",
-                description: "深掘り考察（900〜1300文字）",
+                description: "やさしい深掘り考察（500〜800文字）",
               },
             },
             required: ["category", "reply"],
@@ -223,12 +232,12 @@ export async function generateThreadConversationReply(
         {
           role: "system",
           content: `${MEMO_EDITOR_PERSONA}
-${DEEP_MEMO_RESPONSE_RULES}
+${SIMPLE_MEMO_RESPONSE_RULES}
 
 Slackのスレッド内で、元メモについて会話を続けます。
 必ず「元メモ」の文脈を踏まえ、ユーザーの追加質問に答えてください。
 新規メモとして扱わず、前の話から自然につながる返答にしてください。
-ファクト→抽象化→転用の流れは保ちつつ、Slackで読みやすいよう900〜1400文字で返してください。`,
+ファクト→抽象化→転用の流れは保ちつつ、Slackで読みやすいよう500〜900文字で返してください。`,
         },
         {
           role: "user",
