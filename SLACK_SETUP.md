@@ -67,7 +67,9 @@ In Slack, write in the configured memo channel, mention the bot, DM it, or use t
 
 ```text
 今日の気づきテスト
+履歴 投資メモ
 今日のまとめ
+今日のまとめ アイデア
 @bot 朝の会議で質問が少ないほど理解度が低いと感じた
 /memo-magic 履歴
 /memo-magic 答え合わせ

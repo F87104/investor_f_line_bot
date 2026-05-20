@@ -15,7 +15,13 @@ export async function classifyAndReply(text: string): Promise<{ category: string
           content: `${MAEDA_PERSONA_SHORT}
 
 ユーザーのメモを受け取り、以下をJSON形式で返してください:
-1. category: メモの分類（business/personal/learning/idea/general）
+1. category: メモの分類（investment/thought/idea/learning/task/general）
+   - investment: 投資、株、為替、金利、相場、資産形成
+   - thought: 内省、問い、感情、価値観、思考整理
+   - idea: 企画、サービス案、改善案、創作アイデア
+   - learning: 学び、読書、講座、知識、気づき
+   - task: やること、確認、連絡、期限、具体的な作業
+   - general: 上記に当てはまらないメモ
 2. reply: 前田裕二としての考察（ファクト認識→抽象化→転用→次のアクション提案）
 
 500文字以内で、前向きかつ実行志向で。`,
@@ -32,7 +38,7 @@ export async function classifyAndReply(text: string): Promise<{ category: string
             properties: {
               category: {
                 type: "string",
-                enum: ["business", "personal", "learning", "idea", "general"],
+                enum: ["investment", "thought", "idea", "learning", "task", "general"],
               },
               reply: {
                 type: "string",
@@ -60,7 +66,10 @@ export async function classifyAndReply(text: string): Promise<{ category: string
 // ─── 後方互換: classifyMessage（テスト用に残す） ───
 export async function classifyMessage(text: string): Promise<"business" | "personal" | "learning" | "idea" | "general"> {
   const { category } = await classifyAndReply(text);
-  return category as any;
+  if (category === "learning" || category === "idea" || category === "general") return category;
+  if (category === "investment" || category === "task") return "business";
+  if (category === "thought") return "personal";
+  return "general";
 }
 
 // ─── 後方互換: generateReply（テスト用に残す） ───

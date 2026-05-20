@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { describe, expect, it } from "vitest";
-import { shouldHandleSlackEvent, verifySlackSignature } from "./slack";
+import { classifyMemoFolder, shouldHandleSlackEvent, verifySlackSignature } from "./slack";
 
 function sign(secret: string, timestamp: string, rawBody: string) {
   const base = `v0:${timestamp}:${rawBody}`;
@@ -78,5 +78,20 @@ describe("Slack event routing", () => {
       channel: "C_MEMO",
       subtype: "message_changed",
     }, "C_MEMO")).toBe(false);
+  });
+});
+
+describe("Slack memo folder classification", () => {
+  it("classifies investment memos", () => {
+    expect(classifyMemoFolder("米国株は金利低下局面でグロースが強そう")).toBe("investment");
+  });
+
+  it("classifies idea memos", () => {
+    expect(classifyMemoFolder("LINEとSlackをつなぐ新しいアプリのアイデア")).toBe("idea");
+  });
+
+  it("uses the LLM category when keywords are not obvious", () => {
+    expect(classifyMemoFolder("あとで確認する", "task")).toBe("task");
+    expect(classifyMemoFolder("自分の価値観を整理したい", "thought")).toBe("thought");
   });
 });

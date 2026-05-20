@@ -46,6 +46,9 @@ const RESET_KEYWORDS = ["リセット", "りせっと", "reset", "やり直し",
 
 // ─── Category Labels ───
 const CATEGORY_EMOJI: Record<string, string> = {
+  investment: "📈",
+  thought: "🧠",
+  task: "✅",
   business: "💼",
   personal: "🌱",
   learning: "📖",
@@ -54,6 +57,9 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
+  investment: "投資メモ",
+  thought: "思考",
+  task: "タスク",
   business: "ビジネス",
   personal: "自己成長",
   learning: "学び",

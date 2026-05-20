@@ -39,6 +39,63 @@ const SUMMARY_KEYWORDS = ["summary", "要約"];
 const DAILY_SUMMARY_KEYWORDS = ["daily", "daily summary", "今日のまとめ", "今日まとめ", "日報", "振り返り"];
 const MEMO_KEYWORDS = ["memo", "メモ"];
 
+type MemoFolderId = "investment" | "thought" | "idea" | "learning" | "task" | "general";
+
+type MemoFolder = {
+  id: MemoFolderId;
+  label: string;
+  icon: string;
+  aliases: string[];
+  keywords: string[];
+};
+
+const MEMO_FOLDERS: MemoFolder[] = [
+  {
+    id: "investment",
+    label: "投資メモ",
+    icon: "📈",
+    aliases: ["投資メモ", "投資", "株", "相場", "investment"],
+    keywords: ["投資", "株", "米国株", "日本株", "fx", "為替", "ドル", "円", "金利", "債券", "etf", "nasdaq", "sp500", "s&p", "ビットコイン", "btc", "決算", "銘柄", "チャート", "相場", "資産", "配当", "nisa", "トレード", "ゴールド", "xau"],
+  },
+  {
+    id: "idea",
+    label: "アイデア",
+    icon: "💡",
+    aliases: ["アイデア", "アイディア", "idea"],
+    keywords: ["アイデア", "アイディア", "思いついた", "企画", "サービス", "アプリ", "ネタ", "案", "改善案", "作れそう", "できそう", "ひらめき"],
+  },
+  {
+    id: "task",
+    label: "タスク",
+    icon: "✅",
+    aliases: ["タスク", "todo", "to do", "やること"],
+    keywords: ["todo", "to do", "タスク", "やること", "確認する", "連絡する", "予約", "提出", "期限", "締切", "買う", "作る", "送る", "調べる", "対応", "完了", "依頼"],
+  },
+  {
+    id: "learning",
+    label: "学び",
+    icon: "📚",
+    aliases: ["学び", "学習", "learning", "勉強"],
+    keywords: ["学び", "学んだ", "勉強", "読書", "本", "講座", "知った", "理解", "学習", "授業", "教材", "インプット"],
+  },
+  {
+    id: "thought",
+    label: "思考",
+    icon: "🧠",
+    aliases: ["思考", "考え", "内省", "thought"],
+    keywords: ["思考", "考え", "感じた", "なぜ", "問い", "悩み", "仮説", "内省", "気持ち", "価値観", "違和感", "モヤモヤ"],
+  },
+  {
+    id: "general",
+    label: "その他",
+    icon: "💬",
+    aliases: ["その他", "一般", "general"],
+    keywords: [],
+  },
+];
+
+const MEMO_FOLDER_BY_ID = new Map(MEMO_FOLDERS.map(folder => [folder.id, folder]));
+
 export function verifySlackSignature(
   rawBody: string,
   timestamp: string | undefined,
@@ -85,6 +142,47 @@ function cleanSlackText(text: string): string {
   return text.replace(/<@[A-Z0-9]+>/gi, "").trim();
 }
 
+function getMemoFolder(folderId: MemoFolderId): MemoFolder {
+  return MEMO_FOLDER_BY_ID.get(folderId) ?? MEMO_FOLDERS[MEMO_FOLDERS.length - 1];
+}
+
+function normalizeMemoFolderId(category: string | undefined): MemoFolderId | null {
+  if (!category) return null;
+  if (MEMO_FOLDER_BY_ID.has(category as MemoFolderId)) return category as MemoFolderId;
+  if (category === "business") return "task";
+  if (category === "personal") return "thought";
+  return null;
+}
+
+export function classifyMemoFolder(text: string, category?: string): MemoFolderId {
+  const normalized = text.toLowerCase();
+  const scored = MEMO_FOLDERS
+    .filter(folder => folder.id !== "general")
+    .map(folder => ({
+      folder,
+      score: folder.keywords.reduce((score, keyword) => normalized.includes(keyword.toLowerCase()) ? score + 1 : score, 0),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  if (scored[0]?.score > 0) return scored[0].folder.id;
+  return normalizeMemoFolderId(category) ?? "general";
+}
+
+function resolveMemoFolderFilter(text: string, commandKeywords: string[]): MemoFolder | null {
+  const filterText = stripKeyword(text, commandKeywords)?.trim();
+  if (!filterText) return null;
+
+  const normalized = filterText.toLowerCase();
+  return MEMO_FOLDERS.find(folder =>
+    folder.aliases.some(alias => normalized === alias.toLowerCase() || normalized.includes(alias.toLowerCase()))
+  ) ?? null;
+}
+
+function memoFolderTag(folderId: MemoFolderId): string {
+  const folder = getMemoFolder(folderId);
+  return `${folder.icon} ${folder.label}`;
+}
+
 export function shouldHandleSlackEvent(event: SlackEvent, memoChannelId = ENV.slackMemoChannelId): boolean {
   if (event.bot_id || event.subtype) return false;
   if (!event.user || !event.text || !event.channel) return false;
@@ -102,7 +200,7 @@ function matchesKeyword(text: string, keywords: string[]): boolean {
 function stripKeyword(text: string, keywords: string[]): string | null {
   const trimmed = text.trim();
   const lower = trimmed.toLowerCase();
-  for (const keyword of keywords) {
+  for (const keyword of [...keywords].sort((a, b) => b.length - a.length)) {
     const normalized = keyword.toLowerCase();
     if (lower === normalized) return "";
     if (lower.startsWith(`${normalized} `) || lower.startsWith(`${normalized}　`)) {
@@ -133,26 +231,34 @@ function helpText(): string {
     "",
     "・普通に送る: メモ保存 + 前田裕二的な考察",
     "・履歴 / history: 最近のメモを表示",
+    "・履歴 投資メモ: 分類別に最近のメモを表示",
     "・答え合わせ / answer: 最新メモを分析",
     "・今日のまとめ / 日報: 今日のメモを要約",
+    "・今日のまとめ アイデア: 分類別に今日のメモを要約",
     "・要約 URL / summary URL: 記事や文章を要約",
     "・ヘルプ / help: この案内を表示",
   ].join("\n");
 }
 
-async function handleHistory(userKey: string): Promise<string> {
-  const memos = await getMemos(userKey, 5);
+async function handleHistory(userKey: string, text: string): Promise<string> {
+  const folderFilter = resolveMemoFolderFilter(text, HISTORY_KEYWORDS);
+  const memos = (await getMemos(userKey, folderFilter ? 50 : 5))
+    .filter(memo => !folderFilter || classifyMemoFolder(memo.factContent) === folderFilter.id)
+    .slice(0, 5);
+
   if (memos.length === 0) {
-    return "📚 まだSlackから保存されたメモがありません。\nまず普通にメッセージを送ってください。";
+    const suffix = folderFilter ? `「${folderFilter.label}」のメモがまだありません。` : "まだSlackから保存されたメモがありません。";
+    return `📚 ${suffix}\nまず #メモ に普通に書いてください。`;
   }
 
   const lines = memos.map((memo, index) => {
     const date = new Date(memo.createdAt).toLocaleDateString("ja-JP");
     const preview = memo.factContent.slice(0, 80) + (memo.factContent.length > 80 ? "..." : "");
-    return `${index + 1}. ${date}\n${preview}`;
+    return `${index + 1}. ${date} ${memoFolderTag(classifyMemoFolder(memo.factContent))}\n${preview}`;
   });
 
-  return `📚 最近のメモ\n\n${lines.join("\n\n")}`;
+  const title = folderFilter ? `📚 最近のメモ: ${folderFilter.icon} ${folderFilter.label}` : "📚 最近のメモ";
+  return `${title}\n\n${lines.join("\n\n")}`;
 }
 
 async function handleAnswer(userKey: string): Promise<string> {
@@ -179,18 +285,20 @@ async function handleSummary(text: string): Promise<string> {
   return summarizeArticle(`タイトル: ${article.title}\n\n${article.content}`, article.url);
 }
 
-async function handleDailySummary(userKey: string): Promise<string> {
+async function handleDailySummary(userKey: string, text: string): Promise<string> {
+  const folderFilter = resolveMemoFolderFilter(text, DAILY_SUMMARY_KEYWORDS);
   const today = new Date();
   const todayKey = jstDateKey(today);
   const todaysMemos = (await getMemos(userKey, 100))
     .filter(memo => jstDateKey(new Date(memo.createdAt)) === todayKey)
+    .filter(memo => !folderFilter || classifyMemoFolder(memo.factContent) === folderFilter.id)
     .reverse();
 
   const response = await generateDailyMemoSummary(
     todaysMemos.map(memo => memo.factContent),
-    jstDateLabel(today)
+    folderFilter ? `${jstDateLabel(today)} ${folderFilter.icon} ${folderFilter.label}` : jstDateLabel(today)
   );
-  await saveMessage({ lineUserId: userKey, direction: "outgoing", content: response, messageType: "daily_summary" });
+  await saveMessage({ lineUserId: userKey, direction: "outgoing", content: response, messageType: "analysis_result" });
   return response;
 }
 
@@ -209,8 +317,9 @@ async function handleMemo(userKey: string, text: string): Promise<string> {
     }),
     classifyAndReply(memoText),
   ]);
+  const folderId = classifyMemoFolder(memoText, llmResult.category);
 
-  const response = `📝 メモを保存しました [${llmResult.category}]\n\n${llmResult.reply}\n\n---\n「答え合わせ」で最新メモを深掘りできます。`;
+  const response = `📝 メモを保存しました [${memoFolderTag(folderId)}]\n\n${llmResult.reply}\n\n---\n「履歴 ${getMemoFolder(folderId).label}」で分類別に見られます。\n「答え合わせ」で最新メモを深掘りできます。`;
   await saveMessage({ lineUserId: userKey, direction: "outgoing", content: response, messageType: "analysis_result" });
   return response;
 }
@@ -220,9 +329,9 @@ async function handleSlackText(teamId: string | undefined, userId: string, text:
   const cleanedText = cleanSlackText(text);
 
   if (!cleanedText || matchesKeyword(cleanedText, HELP_KEYWORDS)) return helpText();
-  if (matchesKeyword(cleanedText, HISTORY_KEYWORDS)) return handleHistory(userKey);
+  if (matchesKeyword(cleanedText, HISTORY_KEYWORDS)) return handleHistory(userKey, cleanedText);
   if (matchesKeyword(cleanedText, ANSWER_KEYWORDS)) return handleAnswer(userKey);
-  if (matchesKeyword(cleanedText, DAILY_SUMMARY_KEYWORDS)) return handleDailySummary(userKey);
+  if (matchesKeyword(cleanedText, DAILY_SUMMARY_KEYWORDS)) return handleDailySummary(userKey, cleanedText);
   if (matchesKeyword(cleanedText, SUMMARY_KEYWORDS)) return handleSummary(cleanedText);
 
   return handleMemo(userKey, cleanedText);
