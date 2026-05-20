@@ -194,6 +194,53 @@ export async function generateKotaeawase(factContent: string, userAbstraction?: 
   }
 }
 
+export type ThreadConversationTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+// ─── Slack thread continuation ───
+export async function generateThreadConversationReply(
+  parentMemo: string,
+  conversation: ThreadConversationTurn[],
+  userMessage: string
+): Promise<string> {
+  try {
+    const recentConversation = conversation.slice(-8);
+    const result = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `${MAEDA_PERSONA_SHORT}
+
+Slackのスレッド内で、元メモについて会話を続けます。
+必ず「元メモ」の文脈を踏まえ、ユーザーの追加質問に答えてください。
+新規メモとして扱わず、前の話から自然につながる返答にしてください。
+ファクト→抽象化→転用の流れは保ちつつ、Slackで読みやすいよう700文字以内で返してください。`,
+        },
+        {
+          role: "user",
+          content: [
+            `元メモ:\n${parentMemo}`,
+            recentConversation.length > 0
+              ? `これまでのスレッド会話:\n${recentConversation.map(turn => `${turn.role === "user" ? "ユーザー" : "Bot"}: ${turn.content}`).join("\n\n")}`
+              : "これまでのスレッド会話: なし",
+            `今回の返信:\n${userMessage}`,
+          ].join("\n\n---\n\n"),
+        },
+      ],
+    });
+
+    const text = result.choices[0]?.message?.content;
+    if (typeof text === "string") return text;
+    if (Array.isArray(text)) return text.map(c => ("text" in c ? c.text : "")).join("");
+    return "このメモの続きとして受け取りました。もう少し具体的に聞いてください。";
+  } catch (e) {
+    console.error("[LLM] Slack thread continuation error:", e);
+    return "このメモの続きとして受け取りました。少し考えを整理して、もう一度返します。";
+  }
+}
+
 // ─── Article Summary (前田裕二スタイルで記事要約) ───
 export async function summarizeArticle(content: string, sourceUrl?: string): Promise<string> {
   try {

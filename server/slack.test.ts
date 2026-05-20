@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { describe, expect, it } from "vitest";
-import { classifyMemoFolder, shouldHandleSlackEvent, verifySlackSignature } from "./slack";
+import { classifyMemoFolder, parseThreadReplyIntent, shouldHandleSlackEvent, verifySlackSignature } from "./slack";
 
 function sign(secret: string, timestamp: string, rawBody: string) {
   const base = `v0:${timestamp}:${rawBody}`;
@@ -93,5 +93,32 @@ describe("Slack memo folder classification", () => {
   it("uses the LLM category when keywords are not obvious", () => {
     expect(classifyMemoFolder("あとで確認する", "task")).toBe("task");
     expect(classifyMemoFolder("自分の価値観を整理したい", "thought")).toBe("thought");
+  });
+});
+
+describe("Slack thread reply intent", () => {
+  it("continues the parent memo conversation by default", () => {
+    expect(parseThreadReplyIntent("これを投資に応用すると？")).toEqual({
+      mode: "continue",
+      text: "これを投資に応用すると？",
+    });
+  });
+
+  it("detects append replies", () => {
+    expect(parseThreadReplyIntent("追記: 金利だけでなく決算も見る")).toEqual({
+      mode: "append",
+      text: "金利だけでなく決算も見る",
+    });
+  });
+
+  it("detects explicit new memo replies", () => {
+    expect(parseThreadReplyIntent("別メモ: 明日は決算資料を確認する")).toEqual({
+      mode: "new_memo",
+      text: "明日は決算資料を確認する",
+    });
+    expect(parseThreadReplyIntent("メモ 明日は決算資料を確認する")).toEqual({
+      mode: "new_memo",
+      text: "明日は決算資料を確認する",
+    });
   });
 });

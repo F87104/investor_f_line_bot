@@ -75,3 +75,12 @@ In Slack, write in the configured memo channel, mention the bot, DM it, or use t
 /memo-magic 答え合わせ
 /memo-magic 要約 https://example.com/article
 ```
+
+Thread replies to the bot's memo response keep the original memo context:
+
+```text
+これを投資ルールにすると？
+追記: 金利だけでなく決算も見る
+別メモ: 明日は決算資料を確認する
+答え合わせ
+```

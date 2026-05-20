@@ -1,8 +1,15 @@
 import crypto from "crypto";
 import express, { type Express, type Request, type Response } from "express";
-import { createMemo, getMemos, saveMessage } from "./db";
+import { createMemo, getMemoById, getMemos, getMessagesByUser, saveMessage, updateMemoFactContent } from "./db";
 import { ENV } from "./_core/env";
-import { classifyAndReply, generateDailyMemoSummary, generateKotaeawase, summarizeArticle } from "./llm-handlers";
+import {
+  classifyAndReply,
+  generateDailyMemoSummary,
+  generateKotaeawase,
+  generateThreadConversationReply,
+  summarizeArticle,
+  type ThreadConversationTurn,
+} from "./llm-handlers";
 import { extractUrl, scrapeUrl } from "./scraper";
 
 type SlackEvent = {
@@ -32,12 +39,41 @@ type SlackCommand = {
   responseUrl: string;
 };
 
+type SlackHandlingContext = {
+  channelId?: string;
+  threadTs?: string;
+  isThreadReply?: boolean;
+};
+
+type SlackThreadContextRecord = {
+  type: "slack_thread_context";
+  channelId: string;
+  threadTs: string;
+  memoId: number;
+  rootText: string;
+  folderId: MemoFolderId;
+  createdAt: string;
+};
+
+type SlackThreadTurnRecord = {
+  type: "slack_thread_turn";
+  channelId: string;
+  threadTs: string;
+  role: "user" | "assistant";
+  text: string;
+  createdAt: string;
+};
+
+type SlackThreadRecord = SlackThreadContextRecord | SlackThreadTurnRecord;
+
 const HELP_KEYWORDS = ["help", "ヘルプ", "使い方"];
 const HISTORY_KEYWORDS = ["history", "履歴", "メモ履歴"];
 const ANSWER_KEYWORDS = ["answer", "kotaeawase", "答え合わせ", "答合わせ"];
 const SUMMARY_KEYWORDS = ["summary", "要約"];
 const DAILY_SUMMARY_KEYWORDS = ["daily", "daily summary", "今日のまとめ", "今日まとめ", "日報", "振り返り"];
 const MEMO_KEYWORDS = ["memo", "メモ"];
+const APPEND_PREFIXES = ["追記:", "追記：", "追加:", "追加：", "補足:", "補足："];
+const NEW_MEMO_PREFIXES = ["別メモ:", "別メモ：", "新規メモ:", "新規メモ：", "new memo:", "new memo："];
 
 type MemoFolderId = "investment" | "thought" | "idea" | "learning" | "task" | "general";
 
@@ -183,6 +219,133 @@ function memoFolderTag(folderId: MemoFolderId): string {
   return `${folder.icon} ${folder.label}`;
 }
 
+type ThreadReplyIntent =
+  | { mode: "continue"; text: string }
+  | { mode: "append"; text: string }
+  | { mode: "new_memo"; text: string };
+
+function stripAnyPrefix(text: string, prefixes: string[]): string | null {
+  const trimmed = text.trim();
+  const lower = trimmed.toLowerCase();
+  for (const prefix of prefixes) {
+    const normalized = prefix.toLowerCase();
+    if (lower.startsWith(normalized)) {
+      return trimmed.slice(prefix.length).trim();
+    }
+  }
+  return null;
+}
+
+export function parseThreadReplyIntent(text: string): ThreadReplyIntent {
+  const newMemoText = stripAnyPrefix(text, NEW_MEMO_PREFIXES);
+  if (newMemoText !== null) return { mode: "new_memo", text: newMemoText };
+
+  const appendText = stripAnyPrefix(text, APPEND_PREFIXES);
+  if (appendText !== null) return { mode: "append", text: appendText };
+
+  const explicitMemoText = stripKeyword(text, MEMO_KEYWORDS);
+  if (explicitMemoText !== null) return { mode: "new_memo", text: explicitMemoText };
+
+  return { mode: "continue", text: text.trim() };
+}
+
+function serializeThreadRecord(record: SlackThreadRecord): string {
+  return JSON.stringify(record);
+}
+
+function parseThreadRecord(content: string): SlackThreadRecord | null {
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    if (
+      parsed?.type === "slack_thread_context" &&
+      typeof parsed.channelId === "string" &&
+      typeof parsed.threadTs === "string" &&
+      typeof parsed.memoId === "number" &&
+      typeof parsed.rootText === "string" &&
+      typeof parsed.folderId === "string"
+    ) {
+      return parsed as SlackThreadContextRecord;
+    }
+    if (
+      parsed?.type === "slack_thread_turn" &&
+      typeof parsed.channelId === "string" &&
+      typeof parsed.threadTs === "string" &&
+      (parsed.role === "user" || parsed.role === "assistant") &&
+      typeof parsed.text === "string"
+    ) {
+      return parsed as SlackThreadTurnRecord;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function saveThreadContext(
+  userKey: string,
+  channelId: string,
+  threadTs: string,
+  memoId: number,
+  rootText: string,
+  folderId: MemoFolderId
+) {
+  const record: SlackThreadContextRecord = {
+    type: "slack_thread_context",
+    channelId,
+    threadTs,
+    memoId,
+    rootText,
+    folderId,
+    createdAt: new Date().toISOString(),
+  };
+  await saveMessage({
+    lineUserId: userKey,
+    direction: "outgoing",
+    content: serializeThreadRecord(record),
+    messageType: "workflow_step",
+  });
+}
+
+async function saveThreadTurn(
+  userKey: string,
+  channelId: string,
+  threadTs: string,
+  role: "user" | "assistant",
+  text: string
+) {
+  const record: SlackThreadTurnRecord = {
+    type: "slack_thread_turn",
+    channelId,
+    threadTs,
+    role,
+    text,
+    createdAt: new Date().toISOString(),
+  };
+  await saveMessage({
+    lineUserId: userKey,
+    direction: role === "user" ? "incoming" : "outgoing",
+    content: serializeThreadRecord(record),
+    messageType: "workflow_step",
+  });
+}
+
+async function getThreadContext(userKey: string, channelId: string, threadTs: string) {
+  const records = (await getMessagesByUser(userKey, 400))
+    .map(message => parseThreadRecord(message.content))
+    .filter((record): record is SlackThreadRecord =>
+      Boolean(record && record.channelId === channelId && record.threadTs === threadTs)
+    );
+
+  const context = records.find((record): record is SlackThreadContextRecord => record.type === "slack_thread_context");
+  if (!context) return null;
+
+  const turns = records
+    .filter((record): record is SlackThreadTurnRecord => record.type === "slack_thread_turn")
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  return { context, turns };
+}
+
 export function shouldHandleSlackEvent(event: SlackEvent, memoChannelId = ENV.slackMemoChannelId): boolean {
   if (event.bot_id || event.subtype) return false;
   if (!event.user || !event.text || !event.channel) return false;
@@ -235,6 +398,9 @@ function helpText(): string {
     "・答え合わせ / answer: 最新メモを分析",
     "・今日のまとめ / 日報: 今日のメモを要約",
     "・今日のまとめ アイデア: 分類別に今日のメモを要約",
+    "・Bot返信のスレッドに返信: そのメモの続きとして会話",
+    "・追記: xxx: スレッドの元メモに追記",
+    "・別メモ: xxx: スレッド内でも新しいメモとして保存",
     "・要約 URL / summary URL: 記事や文章を要約",
     "・ヘルプ / help: この案内を表示",
   ].join("\n");
@@ -302,14 +468,14 @@ async function handleDailySummary(userKey: string, text: string): Promise<string
   return response;
 }
 
-async function handleMemo(userKey: string, text: string): Promise<string> {
+async function handleMemo(userKey: string, text: string, context?: SlackHandlingContext): Promise<string> {
   const explicitMemo = stripKeyword(text, MEMO_KEYWORDS);
   const memoText = explicitMemo === null ? text.trim() : explicitMemo.trim();
   if (!memoText) {
     return "📝 メモしたい内容を続けて送ってください。\n例: メモ 朝の会議で、質問が少ないほど理解度が低いと感じた";
   }
 
-  const [, , llmResult] = await Promise.all([
+  const [, createdMemo, llmResult] = await Promise.all([
     saveMessage({ lineUserId: userKey, direction: "incoming", content: memoText, messageType: "memo_input" }),
     createMemo({ lineUserId: userKey, factContent: memoText }).catch(error => {
       console.error("[Slack] Failed to save memo:", error);
@@ -319,22 +485,98 @@ async function handleMemo(userKey: string, text: string): Promise<string> {
   ]);
   const folderId = classifyMemoFolder(memoText, llmResult.category);
 
+  if (context?.channelId && context.threadTs && createdMemo?.id) {
+    await saveThreadContext(userKey, context.channelId, context.threadTs, createdMemo.id, memoText, folderId);
+  }
+
   const response = `📝 メモを保存しました [${memoFolderTag(folderId)}]\n\n${llmResult.reply}\n\n---\n「履歴 ${getMemoFolder(folderId).label}」で分類別に見られます。\n「答え合わせ」で最新メモを深掘りできます。`;
   await saveMessage({ lineUserId: userKey, direction: "outgoing", content: response, messageType: "analysis_result" });
   return response;
 }
 
-async function handleSlackText(teamId: string | undefined, userId: string, text: string): Promise<string> {
-  const userKey = slackUserKey(teamId, userId);
-  const cleanedText = cleanSlackText(text);
+async function handleThreadReply(userKey: string, cleanedText: string, context: SlackHandlingContext): Promise<string> {
+  if (!context.channelId || !context.threadTs) {
+    return "このスレッドの情報を取得できませんでした。新しいメモとして保存する場合は #メモ に普通に投稿してください。";
+  }
 
+  const intent = parseThreadReplyIntent(cleanedText);
+  if (intent.mode === "new_memo") {
+    return handleMemo(userKey, intent.text || cleanedText);
+  }
+
+  const thread = await getThreadContext(userKey, context.channelId, context.threadTs);
+  if (!thread) {
+    return [
+      "このスレッドの元メモがまだ見つかりません。",
+      "新しい #メモ 投稿から始めると、次の返信から会話がつながります。",
+      "別メモとして保存したい場合は「別メモ: 内容」と送ってください。",
+    ].join("\n");
+  }
+
+  const memo = await getMemoById(thread.context.memoId);
+  const parentMemo = memo?.factContent || thread.context.rootText;
+
+  if (intent.mode === "append") {
+    if (!intent.text) return "追記したい内容を「追記: 内容」の形で送ってください。";
+    const updatedMemo = `${parentMemo}\n\n追記: ${intent.text}`;
+    if (memo?.id) await updateMemoFactContent(memo.id, updatedMemo);
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "user", `追記: ${intent.text}`);
+
+    const response = [
+      "📝 追記しました。",
+      "",
+      "このスレッドでは、次からこの追記も踏まえて返します。",
+      "別のメモにしたい時は「別メモ: 内容」と送ってください。",
+    ].join("\n");
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", response);
+    return response;
+  }
+
+  if (matchesKeyword(cleanedText, ANSWER_KEYWORDS)) {
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "user", cleanedText);
+    const response = await generateKotaeawase(parentMemo);
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", response);
+    return response;
+  }
+
+  if (!intent.text) return "このメモの続きとして、聞きたいことを送ってください。";
+
+  const conversation: ThreadConversationTurn[] = thread.turns.map(turn => ({
+    role: turn.role,
+    content: turn.text,
+  }));
+  await saveThreadTurn(userKey, context.channelId, context.threadTs, "user", intent.text);
+  const response = await generateThreadConversationReply(parentMemo, conversation, intent.text);
+  await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", response);
+  return response;
+}
+
+async function handleRootSlackText(userKey: string, cleanedText: string, context?: SlackHandlingContext): Promise<string> {
   if (!cleanedText || matchesKeyword(cleanedText, HELP_KEYWORDS)) return helpText();
   if (matchesKeyword(cleanedText, HISTORY_KEYWORDS)) return handleHistory(userKey, cleanedText);
   if (matchesKeyword(cleanedText, ANSWER_KEYWORDS)) return handleAnswer(userKey);
   if (matchesKeyword(cleanedText, DAILY_SUMMARY_KEYWORDS)) return handleDailySummary(userKey, cleanedText);
   if (matchesKeyword(cleanedText, SUMMARY_KEYWORDS)) return handleSummary(cleanedText);
 
-  return handleMemo(userKey, cleanedText);
+  return handleMemo(userKey, cleanedText, context);
+}
+
+async function handleSlackText(teamId: string | undefined, userId: string, text: string, context?: SlackHandlingContext): Promise<string> {
+  const userKey = slackUserKey(teamId, userId);
+  const cleanedText = cleanSlackText(text);
+
+  if (
+    context?.isThreadReply &&
+    cleanedText &&
+    !matchesKeyword(cleanedText, HELP_KEYWORDS) &&
+    !matchesKeyword(cleanedText, HISTORY_KEYWORDS) &&
+    !matchesKeyword(cleanedText, DAILY_SUMMARY_KEYWORDS) &&
+    !matchesKeyword(cleanedText, SUMMARY_KEYWORDS)
+  ) {
+    return handleThreadReply(userKey, cleanedText, context);
+  }
+
+  return handleRootSlackText(userKey, cleanedText, context);
 }
 
 async function postSlackMessage(channel: string, text: string, threadTs?: string) {
@@ -412,7 +654,12 @@ export function registerSlackRoutes(app: Express) {
     const threadTs =
       event.thread_ts ||
       (event.type === "app_mention" || event.channel === ENV.slackMemoChannelId ? event.ts : undefined);
-    void handleSlackText(body.team_id, user, text)
+    const isThreadReply = Boolean(event.thread_ts && event.thread_ts !== event.ts);
+    void handleSlackText(body.team_id, user, text, {
+      channelId: channel,
+      threadTs,
+      isThreadReply,
+    })
       .then(response => postSlackMessage(channel, response, threadTs))
       .catch(error => {
         console.error("[Slack] Event handling failed:", error);

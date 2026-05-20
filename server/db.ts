@@ -137,6 +137,15 @@ export async function getMessages(limit = 50, messageType?: string) {
   return db.select().from(messages).orderBy(desc(messages.createdAt)).limit(limit);
 }
 
+export async function getMessagesByUser(lineUserId: string, limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(messages)
+    .where(eq(messages.lineUserId, lineUserId))
+    .orderBy(desc(messages.createdAt))
+    .limit(limit);
+}
+
 export async function getMessagesByType() {
   const db = await getDb();
   if (!db) return [];
@@ -251,6 +260,12 @@ export async function updateMemoStatus(id: number, status: "draft" | "categorizi
   const db = await getDb();
   if (!db) return;
   await db.update(memos).set({ status, updatedAt: new Date() }).where(eq(memos.id, id));
+}
+
+export async function updateMemoFactContent(id: number, factContent: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(memos).set({ factContent, updatedAt: new Date() }).where(eq(memos.id, id));
 }
 
 // ─── Categorization helpers ───
