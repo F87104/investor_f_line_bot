@@ -84,6 +84,7 @@ const HELP_KEYWORDS = ["help", "ヘルプ", "使い方", "できること", "機
 const HISTORY_KEYWORDS = ["history", "履歴", "メモ履歴"];
 const ANSWER_KEYWORDS = ["answer", "kotaeawase", "答え合わせ", "答合わせ"];
 const SUMMARY_KEYWORDS = ["summary", "要約"];
+const ORGANIZE_KEYWORDS = ["整理", "棚卸し", "棚卸", "片付け", "片づけ"];
 const ARTICLE_KEYWORDS = ["article", "記事化", "note化", "ブログ化", "下書き"];
 const X_POST_KEYWORDS = ["x", "x化", "post", "ポスト化", "投稿化", "ツイート化", "x投稿"];
 const COPY_KEYWORDS = ["copy", "コピー", "コピー用", "コピペ", "コピペ用"];
@@ -443,10 +444,22 @@ function formatCopyReadyMessages(sections: CopyReadySections): string[] {
   ];
 }
 
+function formatCopyReadyRootPost(sections: CopyReadySections): string {
+  return [
+    "📋 コピー用まとめ",
+    "",
+    ...formatCopyReadyMessages(sections),
+    "",
+    "この投稿のスレッドで、さらに整えられます。",
+  ].join("\n\n");
+}
+
 function formatPhraseCandidates(phrases: string[]): string {
   return [
+    "📌 言葉まとめ",
+    "",
     "使えそうな言葉を抜き出しました。",
-    "深掘りしたいものがあれば、このスレッドで「言葉1」のように送ってください。",
+    "深掘りしたいものがあれば、この投稿のスレッドで「言葉1」のように送ってください。",
     "",
     ...phrases.map((phrase, index) => `${index + 1}. ${phrase}`),
   ].join("\n");
@@ -470,20 +483,63 @@ function jstDateLabel(date: Date): string {
   return date.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "long", day: "numeric", weekday: "short" });
 }
 
+function jstWeekStartKey(date: Date): string {
+  const jst = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+  const day = jst.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  jst.setDate(jst.getDate() + diff);
+  return jst.toLocaleDateString("sv-SE");
+}
+
+function isGeneratedMemo(content: string): boolean {
+  return content.startsWith("📌 言葉メモ") || content.startsWith("📌 言葉まとめ") || content.startsWith("📌 重要まとめ") || content.startsWith("📋 コピー用まとめ");
+}
+
+export function parseOrganizeScope(text: string): "today" | "week" | "unprocessed" | "recent" {
+  const normalized = text.toLowerCase();
+  if (normalized.includes("今日") || normalized.includes("today")) return "today";
+  if (normalized.includes("今週") || normalized.includes("week")) return "week";
+  if (normalized.includes("未処理") || normalized.includes("そのまま") || normalized.includes("まだ")) return "unprocessed";
+  return "recent";
+}
+
+function formatOrganizeMemoPreview(text: string): string {
+  const compact = text
+    .replace(/\n+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return compact.length > 64 ? `${compact.slice(0, 64)}...` : compact;
+}
+
 function helpText(): string {
   return [
     "📖 メモBotでできること",
     "",
-    "まず #メモ に普通に書くと、メモ保存と深掘り返信が返ります。",
-    "そのBot返信のスレッドで、次の言葉を送ると整理できます。",
+    "#メモ は入口です。分類を考えずに、まず普通に書いてください。",
+    "整理はあとからBotが手伝います。",
+    "",
+    "【あとで散らかりを見たい】",
+    "整理",
+    "→ 最近のメモを 投資メモ / 思考 / アイデア / 学び / タスク に分けて表示します。",
+    "",
+    "整理 今日",
+    "→ 今日のメモだけを分けて表示します。",
+    "",
+    "整理 今週",
+    "→ 今週のメモだけを分けて表示します。",
+    "",
+    "整理 未処理",
+    "→ コピー用・言葉まとめ・重要まとめを除いて、まだ素材のまま残っていそうなメモを表示します。",
+    "",
+    "そのBot返信のスレッドでは、次の言葉を送ると育てられます。",
     "",
     "【コピーしたい】",
     "コピー用",
-    "→ タイトル / 大事な一文 / 短い本文 / X投稿 / 次にやること に分けて出します。",
+    "→ タイトル / 大事な一文 / 短い本文 / X投稿 / 次にやること を、新しい投稿に分けて出します。",
     "",
     "【気に入った表現だけ残したい】",
     "言葉",
-    "→ スレッドから、使えそうな短い表現だけを番号つきで抜き出します。",
+    "→ スレッドから、使えそうな短い表現だけを番号つきの新しい投稿にします。",
     "",
     "言葉1",
     "→ 1番の言葉を #メモ に新しい投稿として作ります。そこから別スレッドで深掘りできます。",
@@ -538,6 +594,74 @@ async function handleHistory(userKey: string, text: string): Promise<string> {
 
   const title = folderFilter ? `📚 最近のメモ: ${folderFilter.icon} ${folderFilter.label}` : "📚 最近のメモ";
   return `${title}\n\n${lines.join("\n\n")}`;
+}
+
+async function handleOrganize(userKey: string, text: string): Promise<string> {
+  const scope = parseOrganizeScope(text);
+  const now = new Date();
+  const todayKey = jstDateKey(now);
+  const weekStartKey = jstWeekStartKey(now);
+  const allMemos = await getMemos(userKey, 200);
+  const sourceMemos = allMemos.filter(memo => !isGeneratedMemo(memo.factContent));
+
+  const scopedMemos = sourceMemos.filter(memo => {
+    const memoDate = new Date(memo.createdAt);
+    if (scope === "today") return jstDateKey(memoDate) === todayKey;
+    if (scope === "week") return jstWeekStartKey(memoDate) === weekStartKey;
+    return true;
+  });
+
+  const limitedMemos = scopedMemos.slice(0, scope === "recent" ? 50 : 120);
+  if (limitedMemos.length === 0) {
+    return [
+      "🗂 整理するメモがまだありません。",
+      "",
+      "#メモ に普通に書けば、あとから「整理」で拾えます。",
+    ].join("\n");
+  }
+
+  const grouped = new Map<MemoFolderId, typeof limitedMemos>();
+  for (const folder of MEMO_FOLDERS) grouped.set(folder.id, []);
+  for (const memo of limitedMemos) {
+    const folderId = classifyMemoFolder(memo.factContent);
+    grouped.get(folderId)?.push(memo);
+  }
+
+  const titleByScope: Record<ReturnType<typeof parseOrganizeScope>, string> = {
+    today: "今日の整理",
+    week: "今週の整理",
+    unprocessed: "未処理っぽいメモ",
+    recent: "最近の整理",
+  };
+
+  const blocks = MEMO_FOLDERS
+    .map(folder => {
+      const memos = grouped.get(folder.id) ?? [];
+      if (memos.length === 0) return null;
+      const lines = memos.slice(0, 3).map((memo, index) => {
+        const date = new Date(memo.createdAt).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" });
+        return `${index + 1}. ${date} ${formatOrganizeMemoPreview(memo.factContent)}`;
+      });
+      const hiddenCount = memos.length > 3 ? `\nほか ${memos.length - 3}件` : "";
+      return `${folder.icon} ${folder.label}（${memos.length}件）\n${lines.join("\n")}${hiddenCount}`;
+    })
+    .filter((block): block is string => Boolean(block));
+
+  const scopeNote = scope === "unprocessed"
+    ? "コピー用・言葉まとめ・重要まとめを除いた、素材のまま残っていそうなメモです。"
+    : "#メモ は入口のままでOK。分類はあとから見れば大丈夫です。";
+
+  return [
+    `🗂 ${titleByScope[scope]}`,
+    scopeNote,
+    "",
+    ...blocks,
+    "",
+    "次に使う言葉:",
+    "重要 → 大事な部分を別投稿にする",
+    "言葉 → 気に入った表現だけ抜く",
+    "コピー用 → コピーしやすく短く分ける",
+  ].join("\n\n");
 }
 
 async function handleAnswer(userKey: string): Promise<string> {
@@ -740,8 +864,23 @@ async function handleThreadReply(userKey: string, cleanedText: string, context: 
     const phrases = await generatePhraseExtractsFromThread(parentMemo, conversation);
     await savePhraseCandidates(userKey, context.channelId, context.threadTs, phrases);
 
-    const response = formatPhraseCandidates(phrases);
-    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", response);
+    const phrasePost = formatPhraseCandidates(phrases);
+    const createdMemo = await createMemo({ lineUserId: userKey, factContent: phrasePost }).catch(error => {
+      console.error("[Slack] Failed to save phrase candidates:", error);
+      return null;
+    });
+    await saveMessage({ lineUserId: userKey, direction: "outgoing", content: phrasePost, messageType: "analysis_result" });
+
+    const rootTs = await postSlackMessage(context.channelId, phrasePost);
+    if (createdMemo?.id && rootTs) {
+      await saveThreadContext(userKey, context.channelId, rootTs, createdMemo.id, phrasePost, thread.context.folderId);
+      await savePhraseCandidates(userKey, context.channelId, rootTs, phrases);
+    }
+
+    const response = rootTs
+      ? "言葉まとめを新しい投稿にしました。気になるものは、その投稿のスレッドで「言葉1」のように送れます。"
+      : "言葉まとめを作りましたが、Slackへの投稿に失敗しました。少ししてからもう一度試してください。";
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", `${phrasePost}\n\n${response}`);
     return response;
   }
 
@@ -752,13 +891,22 @@ async function handleThreadReply(userKey: string, cleanedText: string, context: 
       content: turn.text,
     }));
     const sections = await generateCopyReadySectionsFromThread(parentMemo, conversation);
-    const messages = formatCopyReadyMessages(sections);
-    for (const message of messages) {
-      await postSlackMessage(context.channelId, message, context.threadTs);
+    const copyPost = formatCopyReadyRootPost(sections);
+    const createdMemo = await createMemo({ lineUserId: userKey, factContent: copyPost }).catch(error => {
+      console.error("[Slack] Failed to save copy-ready summary:", error);
+      return null;
+    });
+    await saveMessage({ lineUserId: userKey, direction: "outgoing", content: copyPost, messageType: "analysis_result" });
+
+    const rootTs = await postSlackMessage(context.channelId, copyPost);
+    if (createdMemo?.id && rootTs) {
+      await saveThreadContext(userKey, context.channelId, rootTs, createdMemo.id, copyPost, thread.context.folderId);
     }
 
-    const response = "コピー用を短く分けて出しました。必要な部分だけコピーできます。";
-    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", `コピー用:\n${messages.join("\n\n")}\n\n${response}`);
+    const response = rootTs
+      ? "コピー用まとめを新しい投稿にしました。そこから必要な部分だけ使えます。"
+      : "コピー用まとめを作りましたが、Slackへの投稿に失敗しました。少ししてからもう一度試してください。";
+    await saveThreadTurn(userKey, context.channelId, context.threadTs, "assistant", `${copyPost}\n\n${response}`);
     return response;
   }
 
@@ -802,6 +950,7 @@ async function handleThreadReply(userKey: string, cleanedText: string, context: 
 async function handleRootSlackText(userKey: string, cleanedText: string, context?: SlackHandlingContext): Promise<string> {
   if (!cleanedText || matchesKeyword(cleanedText, HELP_KEYWORDS)) return helpText();
   if (matchesKeyword(cleanedText, HISTORY_KEYWORDS)) return handleHistory(userKey, cleanedText);
+  if (matchesKeyword(cleanedText, ORGANIZE_KEYWORDS)) return handleOrganize(userKey, cleanedText);
   if (matchesKeyword(cleanedText, ANSWER_KEYWORDS)) return handleAnswer(userKey);
   if (matchesKeyword(cleanedText, ARTICLE_KEYWORDS)) return handleLatestArticleDraft(userKey);
   if (matchesKeyword(cleanedText, X_POST_KEYWORDS)) return handleLatestXPostDraft(userKey);
@@ -820,6 +969,7 @@ async function handleSlackText(teamId: string | undefined, userId: string, text:
     cleanedText &&
     !matchesKeyword(cleanedText, HELP_KEYWORDS) &&
     !matchesKeyword(cleanedText, HISTORY_KEYWORDS) &&
+    !matchesKeyword(cleanedText, ORGANIZE_KEYWORDS) &&
     !matchesKeyword(cleanedText, DAILY_SUMMARY_KEYWORDS) &&
     !matchesKeyword(cleanedText, SUMMARY_KEYWORDS)
   ) {

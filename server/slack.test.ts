@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { describe, expect, it } from "vitest";
-import { classifyMemoFolder, parsePhraseSelection, parseThreadReplyIntent, shouldHandleSlackEvent, verifySlackSignature } from "./slack";
+import { classifyMemoFolder, parseOrganizeScope, parsePhraseSelection, parseThreadReplyIntent, shouldHandleSlackEvent, verifySlackSignature } from "./slack";
 
 function sign(secret: string, timestamp: string, rawBody: string) {
   const base = `v0:${timestamp}:${rawBody}`;
@@ -134,5 +134,14 @@ describe("Slack phrase selection", () => {
   it("ignores normal phrase extraction requests", () => {
     expect(parsePhraseSelection("言葉")).toBe(null);
     expect(parsePhraseSelection("言葉をもっと")).toBe(null);
+  });
+});
+
+describe("Slack organize scope", () => {
+  it("detects organize ranges", () => {
+    expect(parseOrganizeScope("整理")).toBe("recent");
+    expect(parseOrganizeScope("整理 今日")).toBe("today");
+    expect(parseOrganizeScope("整理 今週")).toBe("week");
+    expect(parseOrganizeScope("整理 未処理")).toBe("unprocessed");
   });
 });

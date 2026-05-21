@@ -71,6 +71,10 @@ In Slack, write in the configured memo channel, mention the bot, DM it, or use t
 履歴 投資メモ
 今日のまとめ
 今日のまとめ アイデア
+整理
+整理 今日
+整理 今週
+整理 未処理
 記事化
 X化
 コピー用
@@ -100,13 +104,40 @@ X化
 
 ## Copy and organize thread content
 
+Keep `#メモ` as the single inbox. You do not need to choose a category when writing.
+
+Use this in `#メモ` or a bot thread:
+
+```text
+整理
+```
+
+Shows recent memos grouped by:
+
+```text
+投資メモ
+思考
+アイデア
+学び
+タスク
+その他
+```
+
+You can also use:
+
+```text
+整理 今日
+整理 今週
+整理 未処理
+```
+
 Use these inside a bot reply thread:
 
 ```text
 コピー用
 ```
 
-Splits the thread into short blocks:
+Creates a new `#メモ` parent post split into short blocks:
 
 ```text
 【タイトル】
@@ -129,7 +160,7 @@ Splits the thread into short blocks:
 言葉
 ```
 
-Extracts short phrases from the thread:
+Creates a new `#メモ` parent post with short phrases from the thread:
 
 ```text
 1. 自分を使う節約
