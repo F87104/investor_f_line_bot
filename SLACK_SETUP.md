@@ -67,6 +67,7 @@ In Slack, write in the configured memo channel, mention the bot, DM it, or use t
 
 ```text
 今日の気づきテスト
+できること
 履歴 投資メモ
 今日のまとめ
 今日のまとめ アイデア
@@ -97,6 +98,53 @@ X化
 重要
 ```
 
-`コピー用` splits a thread into short copy-ready blocks.
-`言葉` extracts short phrases from the thread. Send `言葉1` to turn the first phrase into a new parent post for deeper discussion.
-`重要` creates a new `#メモ` parent post with the important points from the current thread.
+## Copy and organize thread content
+
+Use these inside a bot reply thread:
+
+```text
+コピー用
+```
+
+Splits the thread into short blocks:
+
+```text
+【タイトル】
+...
+
+【大事な一文】
+...
+
+【短い本文】
+...
+
+【X投稿】
+...
+
+【次にやること】
+...
+```
+
+```text
+言葉
+```
+
+Extracts short phrases from the thread:
+
+```text
+1. 自分を使う節約
+2. 体力払い
+3. 便利さを買わない代わりに自分を使っている
+```
+
+```text
+言葉1
+```
+
+Turns phrase number 1 into a new `#メモ` parent post, so it can be discussed in its own thread. `言葉2` and `言葉3` work the same way.
+
+```text
+重要
+```
+
+Creates a new `#メモ` parent post with the important points from the current thread. No copy and paste is needed.
